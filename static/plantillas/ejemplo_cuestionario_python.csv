@@ -1,0 +1,11 @@
+pregunta,tipo,opcion_a,opcion_b,opcion_c,opcion_d,respuesta_correcta,explicacion
+"¿Qué función se utiliza para mostrar información en pantalla en Python?","unica","print()","input()","len()","type()","A","print() envía texto u otros valores a la salida estándar."
+"¿Cuál de estos nombres es válido para una variable en Python?","unica","2nombre","nombre_usuario","nombre-usuario","class","B","Los identificadores pueden usar letras, números y guion bajo, pero no pueden empezar por un número ni usar palabras reservadas."
+"¿Qué tipo de dato representa True o False?","unica","str","int","bool","list","C","bool representa valores lógicos verdadero o falso."
+"¿Qué operador se usa para comparar igualdad?","unica","=","==","!=","=>","B","== compara si dos valores son iguales; = se utiliza para asignación."
+"¿Cuál de las siguientes estructuras es mutable?","unica","tuple","str","list","int","C","Las listas pueden modificarse después de su creación."
+"¿Qué palabras pueden utilizarse para controlar una condición?","multiple","if","elif","else","import","A,B,C","if, elif y else forman la estructura condicional de Python."
+"¿Qué función devuelve la cantidad de elementos de una colección?","unica","count()","size()","len()","items()","C","len() devuelve la longitud de cadenas y colecciones."
+"Una tupla puede modificarse después de ser creada.","verdadero_falso","Verdadero","Falso","","","B","Las tuplas son inmutables."
+"¿Qué símbolo inicia un comentario de una sola línea en Python?","unica","//","#","--","/*","B","Python usa # para comentarios de una sola línea."
+"¿Qué estructura permite repetir un bloque mientras una condición sea verdadera?","unica","if","while","def","try","B","while repite un bloque mientras su condición se evalúe como verdadera."

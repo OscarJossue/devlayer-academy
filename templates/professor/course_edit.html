@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Administrar {{ course.title }} · Devlayer Academy{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">{{ course.get_status_display }}</span><h1>{{ course.title }}</h1><p>Configura contenido, evaluaciones y seguimiento. Publicar siempre depende de la aprobación del superadministrador.</p></div>
+  <div class="page-actions professor-toolbar">
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_students' course.id %}"><svg width="17" height="17"><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg>Estudiantes</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_import_content' course.id %}"><svg width="17" height="17"><use href="{% static 'icons/sprite.svg' %}#subir"></use></svg>Importar XLSX</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_module_create' course.id %}"><svg width="17" height="17"><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Módulo</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'assessments:professor_quiz_create' course.id %}"><svg width="17" height="17"><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg>Evaluación</a>
+    <form method="post" action="{% url 'catalog:professor_submit_review' course.id %}">{% csrf_token %}<button class="btn btn-small" type="submit">Enviar a revisión</button></form>
+  </div>
+</div>
+
+<div class="quick-grid">
+  <a class="quick-card" href="{% url 'catalog:professor_import_content' course.id %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#subir"></use></svg></span><div><strong>Importación XLSX</strong><span>Previsualiza módulos, clases, video y referencias de PDF antes de importar.</span></div></a>
+  <a class="quick-card" href="{% url 'catalog:professor_students' course.id %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><strong>Seguimiento académico</strong><span>Revisa progreso, notas e intentos pendientes de calificación.</span></div></a>
+  <a class="quick-card" href="{% url 'assessments:professor_quiz_create' course.id %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><div><strong>Evaluaciones</strong><span>Crea cuestionarios y reutiliza preguntas de bancos anteriores.</span></div></a>
+  <a class="quick-card" href="{{ course.get_absolute_url }}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg></span><div><strong>Vista del curso</strong><span>Comprueba cómo se presenta al estudiante.</span></div></a>
+</div>
+
+<div class="course-builder">
+  <section class="panel builder-panel">
+    <div class="builder-title"><div><span class="eyebrow">CONFIGURACIÓN</span><h2>Datos del curso</h2></div></div>
+    <div class="form-help-card"><strong>Antes de publicar:</strong> revisa portada, precio, secuencia, nota mínima y política de acceso.</div>
+    <form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Guardar cambios</button></form>
+  </section>
+
+  <div>
+    <section class="panel builder-panel">
+      <div class="builder-title"><div><span class="eyebrow">ESTRUCTURA</span><h2>Módulos y clases</h2></div><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_module_create' course.id %}">Añadir módulo</a></div>
+      {% for module in course.modules.all %}
+        <div class="module-block">
+          <div class="module-title"><strong>{{ module.order }}. {{ module.title }}</strong><a href="{% url 'catalog:professor_lesson_create' module.id %}">Añadir clase</a></div>
+          {% for lesson in module.lessons.all %}<div class="row-item"><span>{{ lesson.order }}. {{ lesson.title }}</span><small>{{ lesson.duration_minutes }} min{% if lesson.material_pdf %} · PDF cargado{% endif %}{% if lesson.video_source %} · Video{% endif %}</small></div>{% empty %}<p class="muted" style="font-size:11px">Este módulo todavía no tiene clases.</p>{% endfor %}
+          {% for quiz in module.quizzes.all %}<div class="row-item quiz-row"><span>Evaluación · {{ quiz.title }} · {{ quiz.questions.count }} preguntas</span><a href="{% url 'assessments:professor_import_questions' quiz.id %}">Banco y vista previa</a></div>{% endfor %}
+        </div>
+      {% empty %}<div class="empty">Agrega un módulo o importa la estructura desde XLSX.</div>{% endfor %}
+    </section>
+
+    <section class="panel builder-panel">
+      <div class="builder-title"><div><span class="eyebrow">CIERRE DEL CURSO</span><h2>Examen final</h2></div></div>
+      {% for quiz in course.quizzes.all %}{% if quiz.kind == 'FINAL' %}<div class="row-item"><span>{{ quiz.title }} · {{ quiz.question_count }} preguntas por intento · mínimo {{ quiz.required_score }}%</span><a href="{% url 'assessments:professor_import_questions' quiz.id %}">Banco y vista previa</a></div>{% endif %}{% empty %}<p class="muted">Aún no configurado.</p>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

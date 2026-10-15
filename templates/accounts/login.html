@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Ingresar · Devlayer Academy{% endblock %}
+{% block content %}
+<section class="auth-page"><div class="container">
+  <div class="auth-shell">
+    <aside class="auth-aside">
+      <span class="eyebrow">DEVLAYER ACADEMY</span>
+      <h2>Continúa donde te quedaste.</h2>
+      <p>Accede a tus cursos, progreso, evaluaciones y certificados desde un único lugar.</p>
+      <div class="auth-points">
+        <div class="auth-point"><span class="auth-point-mark">✓</span> Progreso guardado automáticamente</div>
+        <div class="auth-point"><span class="auth-point-mark">✓</span> Evaluaciones por módulo</div>
+        <div class="auth-point"><span class="auth-point-mark">✓</span> Certificados verificables</div>
+      </div>
+    </aside>
+    <div class="auth-main">
+      <span class="eyebrow">ACCESO</span><h1>Iniciar sesión</h1><p>Ingresa con el correo registrado en la academia.</p>
+      <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Ingresar a mi cuenta</button></form>
+      <div class="split-links"><a href="{% url 'accounts:register' %}">Crear una cuenta</a><a href="{% url 'accounts:password_reset' %}">Olvidé mi contraseña</a></div>
+    </div>
+  </div>
+</div></section>
+{% endblock %}

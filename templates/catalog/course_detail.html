@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.title }} · Devlayer Academy{% endblock %}
+{% block content %}
+<section class="course-detail-hero">
+  <div class="container course-detail-grid">
+    <div class="course-detail-copy">
+      <span class="badge">{{ course.category.name }}</span>
+      <h1>{{ course.title }}</h1>
+      <p class="lead">{{ course.short_description|default:course.description|truncatechars:280 }}</p>
+      <div class="course-detail-cover">
+        {% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="Portada de {{ course.title }}">{% else %}<div class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></div>{% endif %}
+      </div>
+      {% if course.description %}<div class="panel curriculum"><h2>Acerca de este curso</h2><div class="prose">{{ course.description|linebreaks }}</div></div>{% endif %}
+      <div class="panel curriculum">
+        <h2>Contenido del curso</h2>
+        {% for module in course.modules.all %}
+          <div class="module-summary"><strong>{{ module.order }}. {{ module.title }}</strong><span>{{ module.lessons.count }} clase{{ module.lessons.count|pluralize:"s" }}</span></div>
+        {% empty %}<p class="muted">El contenido todavía está en preparación.</p>{% endfor %}
+      </div>
+    </div>
+
+    <aside class="panel course-purchase">
+      <span class="eyebrow">ACCESO AL CURSO</span>
+      <div class="course-price">{% if course.price %}${{ course.price }} <small>{{ course.currency }}</small>{% else %}Gratis{% endif %}</div>
+      <div class="course-purchase-list">
+        <div class="course-purchase-item"><span>Modalidad</span><strong>En línea</strong></div>
+        <div class="course-purchase-item"><span>Acceso</span><strong>{{ course.get_access_type_display }}</strong></div>
+        <div class="course-purchase-item"><span>Aprobación</span><strong>{{ course.default_pass_percentage }}%</strong></div>
+        <div class="course-purchase-item"><span>Ruta</span><strong>{% if course.sequential_learning %}Secuencial{% else %}Libre{% endif %}</strong></div>
+      </div>
+      {% if enrollment and enrollment.access_allowed %}
+        <a class="btn btn-block" href="{% url 'learning:course_player' course.slug %}">Continuar curso</a>
+      {% else %}
+        <a class="btn btn-block" href="{% url 'billing:checkout' course.slug %}">{% if course.price %}Solicitar acceso{% else %}Inscribirme gratis{% endif %}</a>
+      {% endif %}
+      {% with instructor=course.lead_instructor %}
+        <div class="instructor-mini" style="margin-top:18px;padding-top:18px;border-top:1px solid var(--line)"><span class="avatar">{% if instructor %}{{ instructor.display_name|slice:':1' }}{% else %}D{% endif %}</span><div><strong>{% if instructor %}{{ instructor.display_name }}{% else %}Devlayer Academy{% endif %}</strong><span>Instructor del curso</span></div></div>
+      {% endwith %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

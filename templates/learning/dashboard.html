@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mi academia · Devlayer Academy{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">MI ACADEMIA</span><h1>Hola, {{ user.display_name }}</h1><p>Continúa tus cursos, revisa tu avance y accede a tus certificados desde este panel.</p></div><div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:course_list' %}">Explorar cursos</a></div></div>
+
+<div class="quick-grid">
+  <div class="quick-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ active_count }} cursos activos</strong><span>Con acceso disponible ahora</span></div></div>
+  <div class="quick-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><strong>{{ average_progress }}% de avance</strong><span>Promedio de tus cursos</span></div></div>
+  <a class="quick-card" href="{% url 'certificates:my_certificates' %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><div><strong>{{ certificate_count }} certificados</strong><span>Consulta y descarga tus certificados</span></div></a>
+  <a class="quick-card" href="{% url 'billing:history' %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>Pagos y órdenes</strong><span>Revisa tus solicitudes de acceso</span></div></a>
+</div>
+
+{% if not user.email_verified %}<div class="message warning" style="margin-bottom:18px">Tu correo todavía no está verificado. <a href="{% url 'accounts:verification_pending' %}" style="font-weight:800">Verificar ahora</a>.</div>{% endif %}
+<div class="section-head" style="margin-bottom:14px"><div><span class="eyebrow">TUS CURSOS</span><h2>Continúa aprendiendo</h2></div></div>
+<div class="student-course-grid">
+  {% for card in cards %}
+    <article class="panel student-course">
+      <div class="student-course-cover">{% if card.enrollment.course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' card.enrollment.course.id %}" alt="{{ card.enrollment.course.title }}">{% else %}<span class="course-cover-placeholder"><span class="course-cover-code">{{ card.enrollment.course.title|slice:':2'|upper }}</span></span>{% endif %}<span class="student-course-state badge {% if card.enrollment.access_allowed %}badge-success{% else %}badge-danger{% endif %}">{{ card.enrollment.get_status_display }}</span></div>
+      <div class="student-course-body"><span class="badge">{{ card.enrollment.course.category.name }}</span><h3 style="margin-top:10px">{{ card.enrollment.course.title }}</h3><div class="student-course-meta"><span>Progreso del curso</span><strong>{{ card.progress }}%</strong></div><div class="progress"><span style="width: {{ card.progress }}%"></span></div><div class="progress-label"><span>{% if card.progress == 100 %}Ruta completada{% elif card.progress > 0 %}Sigue avanzando{% else %}Listo para comenzar{% endif %}</span><span>{% if card.enrollment.expires_at %}Hasta {{ card.enrollment.expires_at|date:'d/m/Y' }}{% else %}Sin fecha límite{% endif %}</span></div><div class="actions">{% if card.enrollment.access_allowed %}<a class="btn btn-small" href="{% url 'learning:course_player' card.enrollment.course.slug %}">{% if card.progress > 0 %}Continuar curso{% else %}Comenzar curso{% endif %}</a>{% else %}<span class="btn btn-small btn-secondary" style="pointer-events:none">Acceso no disponible</span>{% endif %}{% if card.enrollment.certificate %}<a class="btn btn-small btn-secondary" href="{% url 'certificates:pdf' card.enrollment.certificate.code %}">Certificado</a>{% endif %}</div></div>
+    </article>
+  {% empty %}<div class="empty">Todavía no tienes cursos. <a href="{% url 'catalog:course_list' %}">Explora el catálogo y elige el primero.</a></div>{% endfor %}
+</div>
+{% endblock %}

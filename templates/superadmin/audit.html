@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Auditoría · Superadmin{% endblock %}{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">SEGURIDAD</span><h1>Auditoría</h1><p>Historial de acciones administrativas importantes.</p></div></div>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Objeto</th><th>IP</th></tr></thead><tbody>{% for item in logs %}<tr><td>{{ item.created_at|date:'d/m/Y H:i:s' }}</td><td>{{ item.actor.email|default:'Sistema' }}</td><td><strong>{{ item.action }}</strong></td><td>{{ item.target_model }} {{ item.target_id|truncatechars:16 }}</td><td>{{ item.ip_address|default:'—' }}</td></tr>{% empty %}<tr><td colspan="5">Sin registros todavía.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

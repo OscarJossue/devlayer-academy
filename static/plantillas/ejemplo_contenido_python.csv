@@ -1,0 +1,6 @@
+modulo_orden,modulo_titulo,modulo_descripcion,requiere_cuestionario,clase_orden,clase_titulo,clase_descripcion,duracion_minutos,video_url,pdf_archivo,vista_previa
+1,"Fundamentos de Python","Preparación del entorno y conceptos esenciales.",si,1,"Bienvenida e instalación","Presentación del curso e instalación del entorno de trabajo.",12,"https://youtu.be/REEMPLAZA_ID_VIDEO_01","01-bienvenida.pdf",si
+1,"Fundamentos de Python","Preparación del entorno y conceptos esenciales.",si,2,"Variables y tipos de datos","Variables, números, cadenas y valores booleanos.",20,"https://youtu.be/REEMPLAZA_ID_VIDEO_02","02-variables.pdf",no
+1,"Fundamentos de Python","Preparación del entorno y conceptos esenciales.",si,3,"Operadores y entrada de datos","Operadores básicos y uso de input().",18,"https://youtu.be/REEMPLAZA_ID_VIDEO_03","03-operadores.pdf",no
+2,"Control de flujo","Condiciones, ciclos y resolución de problemas.",si,1,"Condicionales","Uso de if, elif y else con ejemplos prácticos.",22,"https://youtu.be/REEMPLAZA_ID_VIDEO_04","04-condicionales.pdf",no
+2,"Control de flujo","Condiciones, ciclos y resolución de problemas.",si,2,"Ciclos for y while","Repetición de tareas con ciclos y rangos.",26,"https://youtu.be/REEMPLAZA_ID_VIDEO_05","05-ciclos.pdf",no

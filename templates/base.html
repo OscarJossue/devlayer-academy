@@ -1,0 +1,105 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f7fb">
+  <meta name="description" content="Devlayer Academy · Formación tecnológica con rutas, evaluaciones y certificados verificables.">
+  <title>{% block title %}Devlayer Academy{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/academy-shell.css' %}">
+  <link rel="stylesheet" href="{% static 'css/superadmin.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% if user.is_authenticated %}con-panel{% else %}pagina-publica{% endif %}">
+{% if user.is_authenticated %}
+<div class="app-shell" data-app-shell>
+  <aside class="app-sidebar" data-sidebar aria-label="Menú principal">
+    <div class="sidebar-brand">
+      <a href="{% if user.is_superuser or user.role == 'SUPERADMIN' %}{% url 'superadmin:dashboard' %}{% elif user.role == 'PROFESSOR' or user.role == 'ADMIN' %}{% url 'catalog:professor_dashboard' %}{% else %}{% url 'learning:dashboard' %}{% endif %}" class="brand-logo" aria-label="Devlayer Academy">
+        <img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">
+      </a>
+      <button class="sidebar-collapse" type="button" data-sidebar-collapse aria-label="Contraer menú" title="Contraer menú"><svg><use href="{% static 'icons/sprite.svg' %}#menu"></use></svg></button>
+    </div>
+
+    <div class="sidebar-profile">
+      <span class="profile-avatar">{{ user.display_name|slice:':1'|upper }}</span>
+      <div class="profile-copy"><strong>{{ user.display_name }}</strong><span>{{ user.get_role_display }}</span></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      {% if user.is_superuser or user.role == 'SUPERADMIN' %}
+        <span class="sidebar-section">Administración</span>
+        <a class="sidebar-link" href="{% url 'superadmin:dashboard' %}"><svg><use href="{% static 'icons/sprite.svg' %}#inicio"></use></svg><span>Resumen general</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:users' %}"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg><span>Usuarios y roles</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:courses' %}"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg><span>Cursos</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:enrollments' %}"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg><span>Matrículas y accesos</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:payments' %}"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg><span>Pagos</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:certificates' %}"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg><span>Certificados</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:categories' %}"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg><span>Categorías</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:banks' %}"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg><span>Cuentas bancarias</span></a>
+        <a class="sidebar-link" href="{% url 'superadmin:audit' %}"><svg><use href="{% static 'icons/sprite.svg' %}#configuracion"></use></svg><span>Auditoría</span></a>
+        <span class="sidebar-section">Academia</span>
+        <a class="sidebar-link" href="{% url 'catalog:professor_dashboard' %}"><svg><use href="{% static 'icons/sprite.svg' %}#profesor"></use></svg><span>Vista profesor</span></a>
+        <a class="sidebar-link" href="{% url 'catalog:course_list' %}"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg><span>Catálogo público</span></a>
+      {% elif user.role == 'PROFESSOR' or user.role == 'ADMIN' %}
+        <span class="sidebar-section">Profesor</span>
+        <a class="sidebar-link" href="{% url 'catalog:professor_dashboard' %}"><svg><use href="{% static 'icons/sprite.svg' %}#inicio"></use></svg><span>Resumen</span></a>
+        <a class="sidebar-link" href="{% url 'catalog:professor_dashboard' %}"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg><span>Mis cursos</span></a>
+        <a class="sidebar-link" href="{% url 'catalog:professor_course_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg><span>Crear curso</span></a>
+        <a class="sidebar-link" href="{% url 'catalog:course_list' %}"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg><span>Catálogo publicado</span></a>
+      {% else %}
+        <span class="sidebar-section">Mi academia</span>
+        <a class="sidebar-link" href="{% url 'learning:dashboard' %}"><svg><use href="{% static 'icons/sprite.svg' %}#inicio"></use></svg><span>Resumen</span></a>
+        <a class="sidebar-link" href="{% url 'catalog:course_list' %}"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg><span>Explorar cursos</span></a>
+        <a class="sidebar-link" href="{% url 'certificates:my_certificates' %}"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg><span>Mis certificados</span></a>
+        <a class="sidebar-link" href="{% url 'billing:history' %}"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg><span>Mis pagos</span></a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+        <button class="sidebar-link sidebar-logout" type="submit"><svg><use href="{% static 'icons/sprite.svg' %}#salir"></use></svg><span>Cerrar sesión</span></button>
+      </form>
+    </div>
+  </aside>
+  <button class="sidebar-overlay" type="button" data-sidebar-overlay aria-label="Cerrar menú"></button>
+
+  <div class="app-main">
+    <header class="app-topbar">
+      <button class="mobile-menu" type="button" data-sidebar-toggle aria-label="Abrir menú"><svg><use href="{% static 'icons/sprite.svg' %}#menu"></use></svg></button>
+      <div class="topbar-copy"><span>{% if user.is_superuser or user.role == 'SUPERADMIN' %}Superadministración{% elif user.role == 'PROFESSOR' or user.role == 'ADMIN' %}Panel del profesor{% else %}Área del estudiante{% endif %}</span><strong>Devlayer Academy</strong></div>
+      <div class="topbar-actions">{% if not user.email_verified %}<a class="topbar-alert" href="{% url 'accounts:verification_pending' %}">Verificar correo</a>{% endif %}<span class="topbar-user">{{ user.email }}</span></div>
+    </header>
+    {% if messages %}<div class="app-messages" aria-live="polite">{% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    <main class="app-content">
+{% else %}
+<header class="public-header">
+  <div class="container public-nav">
+    <a class="public-brand" href="{% url 'core:home' %}" aria-label="Devlayer Academy - Inicio"><img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio"></a>
+    <nav class="public-links"><a href="{% url 'catalog:course_list' %}">Cursos</a><a href="{% url 'accounts:login' %}">Ingresar</a><a class="btn btn-small" href="{% url 'accounts:register' %}">Crear cuenta</a></nav>
+  </div>
+</header>
+{% if messages %}<div class="container messages" aria-live="polite">{% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+<main>
+{% endif %}
+
+{% block content %}{% endblock %}
+
+{% if user.is_authenticated %}
+    </main>
+  </div>
+</div>
+{% else %}
+</main>
+<footer class="footer"><div class="container footer-inner"><div><strong>Devlayer Academy</strong> · Formación tecnológica clara y verificable.</div><div>DevLayer Studio</div></div></footer>
+{% endif %}
+<script src="{% static 'js/app.js' %}" defer></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

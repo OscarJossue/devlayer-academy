@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Crear cuenta · Devlayer Academy{% endblock %}
+{% block content %}
+<section class="auth-page"><div class="container">
+  <div class="auth-shell">
+    <aside class="auth-aside">
+      <span class="eyebrow">NUEVO ESTUDIANTE</span>
+      <h2>Tu aprendizaje empieza aquí.</h2>
+      <p>Crea tu cuenta, verifica el correo y elige los cursos que quieres tomar.</p>
+      <div class="auth-points">
+        <div class="auth-point"><span class="auth-point-mark">01</span> Registra tu correo</div>
+        <div class="auth-point"><span class="auth-point-mark">02</span> Verifica tu cuenta</div>
+        <div class="auth-point"><span class="auth-point-mark">03</span> Elige tus cursos</div>
+      </div>
+    </aside>
+    <div class="auth-main">
+      <span class="eyebrow">REGISTRO</span><h1>Crear cuenta</h1><p>Usa un correo válido: la verificación es obligatoria antes de entrar a los cursos.</p>
+      <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Crear mi cuenta</button></form>
+      <div class="split-links"><span class="muted">¿Ya tienes cuenta?</span><a href="{% url 'accounts:login' %}">Ingresar</a></div>
+    </div>
+  </div>
+</div></section>
+{% endblock %}

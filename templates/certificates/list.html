@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mis certificados · Devlayer Academy{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">CERTIFICADOS</span><h1>Mis certificados</h1><p>Aquí aparecen los certificados emitidos automáticamente cuando cumples todos los requisitos del curso.</p></div></div>
+<div class="record-grid">
+  {% for certificate in certificates %}
+    <article class="record-card"><div class="record-head"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><span class="badge {% if certificate.status == 'VALID' %}badge-success{% else %}badge-danger{% endif %}">{{ certificate.get_status_display }}</span></div><h3>{{ certificate.enrollment.course.title }}</h3><div class="record-meta"><span>Código: <strong>{{ certificate.code }}</strong></span><span>Emitido: {{ certificate.issued_at|date:'d/m/Y' }}</span></div><div class="actions"><a class="btn btn-small" href="{% url 'certificates:pdf' certificate.code %}">Descargar PDF</a><a class="btn btn-secondary btn-small" href="{% url 'certificates:verify' certificate.code %}" target="_blank" rel="noopener">Verificar</a></div></article>
+  {% empty %}<div class="empty">Todavía no tienes certificados emitidos.</div>{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Panel general | Devlayer Academy{% endblock %}
+{% block content %}
+<div class="admin-page-heading">
+  <div><span class="admin-eyebrow">CONTROL TOTAL</span><h1>Panel superadministrador</h1><p>Gestiona usuarios, profesores, cursos, accesos, pagos, evaluaciones y certificados.</p></div>
+</div>
+
+<div class="admin-quick-grid">
+  <a class="admin-quick-card" href="{% url 'admin:accounts_user_changelist' %}"><span class="admin-icon"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>Usuarios y roles</strong><span>Crear profesores, habilitar o bloquear cuentas.</span></div></a>
+  <a class="admin-quick-card" href="{% url 'admin:catalog_course_changelist' %}"><span class="admin-icon"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>Cursos</strong><span>Aprobar, publicar y revisar contenido académico.</span></div></a>
+  <a class="admin-quick-card" href="{% url 'admin:learning_enrollment_changelist' %}"><span class="admin-icon"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><strong>Matrículas y accesos</strong><span>Bloquear un curso sin afectar los demás del estudiante.</span></div></a>
+  <a class="admin-quick-card" href="{% url 'admin:billing_payment_changelist' %}"><span class="admin-icon"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>Finanzas</strong><span>Revisar comprobantes y aprobar pagos.</span></div></a>
+  <a class="admin-quick-card" href="{% url 'admin:assessments_quiz_changelist' %}"><span class="admin-icon"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><div><strong>Evaluaciones</strong><span>Cuestionarios, exámenes, bancos e intentos.</span></div></a>
+  <a class="admin-quick-card" href="{% url 'admin:certificates_certificate_changelist' %}"><span class="admin-icon"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><div><strong>Certificados</strong><span>Consultar, validar o revocar certificados.</span></div></a>
+</div>
+
+<section class="admin-apps-panel">
+  <div class="admin-section-title"><span class="admin-eyebrow">MÓDULOS</span><h2>Administración detallada</h2></div>
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</section>
+{% endblock %}
+{% block sidebar %}{% endblock %}

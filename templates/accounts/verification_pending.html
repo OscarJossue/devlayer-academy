@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Verifica tu correo · Devlayer Academy{% endblock %}
+{% block content %}
+<section class="auth-page"><div class="container narrow"><div class="panel certificate-panel center">
+  <div class="big-icon">@</div><span class="eyebrow">SEGURIDAD DE CUENTA</span><h1 style="margin:12px 0 10px">Verifica tu correo</h1>
+  <p class="muted">Enviamos un enlace de activación a tu correo. El enlace vence en 24 horas.</p>
+  {% if user.is_authenticated and not user.email_verified %}<form method="post" action="{% url 'accounts:resend_verification' %}" style="margin-top:22px">{% csrf_token %}<button class="btn">Reenviar correo</button></form>{% endif %}
+</div></div></section>
+{% endblock %}

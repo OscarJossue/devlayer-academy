@@ -1,0 +1,4 @@
+question,type,option_a,option_b,option_c,option_d,correct_answer,explanation
+¿Qué palabra clave define una función en Python?,single,func,def,function,method,B,"La palabra clave correcta es def."
+Python es un lenguaje interpretado.,boolean,Verdadero,Falso,,,A,"Python normalmente se ejecuta mediante un intérprete."
+¿Cuáles son tipos de colección de Python?,multiple,list,dict,tuple,compile,"A,B,C","list, dict y tuple son colecciones."

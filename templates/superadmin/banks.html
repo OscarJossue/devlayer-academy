@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Cuentas bancarias · Superadmin{% endblock %}{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">COBROS</span><h1>Cuentas bancarias</h1><p>Configura los datos que verá el estudiante al elegir transferencia bancaria.</p></div><a class="btn" href="{% url 'superadmin:bank_create' %}">Añadir cuenta</a></div>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Banco</th><th>Cuenta</th><th>Titular</th><th>Estado</th></tr></thead><tbody>{% for item in banks_list %}<tr><td><strong>{{ item.bank_name }}</strong><small>{{ item.account_type }}</small></td><td>{{ item.account_number }}</td><td>{{ item.holder_name }}</td><td><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Visible{% else %}Oculta{% endif %}</span></td></tr>{% empty %}<tr><td colspan="4">No hay cuentas configuradas.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

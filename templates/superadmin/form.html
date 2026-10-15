@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}{{ title }} · Superadmin{% endblock %}{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">SUPERADMINISTRACIÓN</span><h1>{{ title }}</h1><p>{{ subtitle }}</p></div><a class="btn btn-secondary" href="{% url back_url %}">Volver</a></div>
+<section class="sa-panel sa-form-panel"><form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<div class="form-actions"><button class="btn" type="submit">Guardar cambios</button></div></form></section>
+{% endblock %}

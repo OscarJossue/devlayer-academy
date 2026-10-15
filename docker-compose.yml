@@ -1,0 +1,70 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-devlayer}
+      POSTGRES_USER: ${POSTGRES_USER:-devlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devlayer} -d ${POSTGRES_DB:-devlayer}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    restart: "on-failure:3"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8000}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
+      DJANGO_LOG_LEVEL: ${DJANGO_LOG_LEVEL:-INFO}
+
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-devlayer}
+      POSTGRES_USER: ${POSTGRES_USER:-devlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      CONTENT_ENCRYPTION_KEY: ${CONTENT_ENCRYPTION_KEY}
+
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-1}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-0}
+      EMAIL_TIMEOUT: ${EMAIL_TIMEOUT:-20}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+
+      WHATSAPP_NUMBER: ${WHATSAPP_NUMBER:-}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-admin@devlayer.local}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
+      AUTO_MAKEMIGRATIONS: ${AUTO_MAKEMIGRATIONS:-1}
+      SEED_DEMO: ${SEED_DEMO:-1}
+      REQUIRE_FINAL_EXAM_IDENTITY_PHOTO: ${REQUIRE_FINAL_EXAM_IDENTITY_PHOTO:-0}
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-0}
+      SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-0}
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+
+volumes:
+  # Nombres explícitos y estables para que futuras versiones no cambien
+  # accidentalmente las credenciales de una base ya inicializada.
+  postgres_data:
+    name: devlayer_academy_pgdata
+  media_data:
+    name: devlayer_academy_media
+  static_data:
+    name: devlayer_academy_static

@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}{{ lesson.title }} · {{ course.title }}{% endblock %}
+{% block content %}
+<section class="player-layout">
+  <aside class="course-sidebar">
+    <a class="sidebar-back" href="{% url 'learning:dashboard' %}">← Volver a mis cursos</a>
+    <h2>{{ course.title }}</h2>
+    <small>{{ percentage }}% completado</small>
+    <div class="course-sidebar-progress"><div class="progress"><span style="width: {{ percentage }}%"></span></div></div>
+
+    <div class="lesson-nav">
+      {% regroup lessons by module as module_list %}
+      {% for group in module_list %}
+        <div class="nav-module">
+          <strong>Módulo {{ group.grouper.order }} · {{ group.grouper.title }}</strong>
+          {% for item in group.list %}
+            <a class="{% if item.id == lesson.id %}active{% endif %}" href="{% url 'learning:lesson' course.slug item.id %}"><span class="lesson-order">{{ item.order }}</span><span>{{ item.title }}</span></a>
+          {% endfor %}
+          {% for quiz in group.grouper.quizzes.all %}
+            <a class="quiz-link" href="{% url 'assessments:take' quiz.id %}"><span class="lesson-order">Q</span><span>{{ quiz.title }}</span></a>
+          {% endfor %}
+        </div>
+      {% endfor %}
+      {% for quiz in course.quizzes.all %}{% if quiz.kind == 'FINAL' %}<a class="final-exam quiz-link" href="{% url 'assessments:take' quiz.id %}"><span class="lesson-order">F</span><span>{{ quiz.title }}</span></a>{% endif %}{% endfor %}
+    </div>
+  </aside>
+
+  <div class="lesson-main">
+    <div class="lesson-header">
+      <div><span class="eyebrow">{{ lesson.module.title }}</span><h1>{{ lesson.title }}</h1></div>
+      <div class="lesson-header-meta">Clase {{ lesson.order }} · {{ lesson.duration_minutes }} min</div>
+    </div>
+
+    {% if lesson.embed_url %}
+      <div class="video-wrap"><iframe src="{{ lesson.embed_url }}" title="{{ lesson.title }}" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="watermark">DEVLAYER · {{ user.email }}</div></div>
+    {% else %}
+      <div class="video-placeholder">Esta clase no tiene video configurado.</div>
+    {% endif %}
+
+    <div class="panel lesson-content">
+      <h2>Contenido de la clase</h2>
+      <div class="prose">{{ lesson.description|default:'El profesor todavía no ha agregado una descripción para esta clase.'|linebreaks }}</div>
+      <div class="lesson-actions">
+        <div class="actions">{% if material_url %}<a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ material_url }}">Ver material PDF</a>{% endif %}</div>
+        <div>{% if not progress.completed %}<form method="post" action="{% url 'learning:complete_lesson' course.slug lesson.id %}">{% csrf_token %}<button class="btn">Marcar como completada</button></form>{% else %}<span class="completed-mark">✓ Clase completada</span>{% endif %}</div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

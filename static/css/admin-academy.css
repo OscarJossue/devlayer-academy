@@ -1,0 +1,39 @@
+:root {
+  --primary:#126fd1;
+  --secondary:#12213d;
+  --accent:#2da8ff;
+  --header-bg:#10182d;
+  --header-color:#fff;
+  --breadcrumbs-bg:#f1f6fc;
+  --breadcrumbs-fg:#35506f;
+  --link-fg:#126fd1;
+  --link-hover-color:#0b5baa;
+  --button-bg:#126fd1;
+  --button-hover-bg:#0b5baa;
+  --default-button-bg:#126fd1;
+  --default-button-hover-bg:#0b5baa;
+  --body-bg:#f4f7fb;
+  --body-fg:#25324a;
+  --hairline-color:#e0e6ef;
+  --border-color:#dce3ed;
+  font-family:"Montserrat",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{background:#f4f7fb;font-family:"Montserrat",system-ui,sans-serif;font-size:13px;color:#25324a}
+#header{min-height:72px;padding:8px 22px;align-items:center;background:#10182d;border-bottom:0;box-shadow:0 8px 30px rgba(18,31,56,.15)}
+#branding{min-width:0}.academy-admin-brand{display:flex;align-items:center;gap:12px}.academy-admin-logo{width:168px;height:50px;display:flex;align-items:center;justify-content:center;padding:4px 8px;background:#fff;border-radius:9px;overflow:hidden}.academy-admin-logo img{width:100%;height:100%;object-fit:contain}.academy-admin-brandcopy{display:grid;gap:1px}.academy-admin-brandcopy strong{color:#fff;font-size:13px}.academy-admin-brandcopy span{color:#8fa5ce;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.academy-admin-global{display:flex;align-items:center;gap:8px}.academy-admin-global a{display:inline-flex;align-items:center;min-height:34px;padding:0 11px;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#dce8ff!important;font-size:10px;font-weight:750}.academy-admin-global a:hover{background:rgba(255,255,255,.08);color:#fff!important}
+#user-tools{font-size:10px;color:#b9c8e4}#user-tools a{color:#fff}
+div.breadcrumbs{padding:10px 24px;background:#eef4fb;color:#52647d;font-size:11px}div.breadcrumbs a{color:#126fd1}
+#content{padding:24px 26px 38px;max-width:1500px}#content h1{margin:0 0 18px;color:#17223a;font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-.025em}#content h2{font-size:18px}#content h3{font-size:15px}
+/* Built-in Django left navigation becomes the superadmin sidebar */
+#nav-sidebar{background:#fff;border-right:1px solid #e0e6ef;box-shadow:8px 0 22px rgba(30,47,78,.04)}#nav-sidebar .module{margin:0;border:0;border-radius:0;box-shadow:none;background:transparent}#nav-sidebar .module caption{padding:13px 14px 7px;background:transparent;color:#7d899c;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}#nav-sidebar th,#nav-sidebar td{padding:0;border:0}#nav-sidebar a{display:block;margin:2px 8px;padding:8px 10px;border-radius:7px;color:#43506a;font-size:11px;font-weight:650}#nav-sidebar a:hover,#nav-sidebar .current-model a{background:#edf5ff;color:#0e69bf}.toggle-nav-sidebar{background:#fff;border-right:1px solid #e0e6ef;color:#385577}
+.module,.inline-group,.admin-apps-panel{border:1px solid #e0e6ef;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 8px 24px rgba(31,44,78,.045)}.module h2,.module caption,.inline-group h2{padding:10px 13px;background:#f6f8fb;color:#33415a;font-size:11px;font-weight:800;text-transform:none}.module table th{font-size:11px}.module table td{font-size:11px}
+.change-list .filtered{min-height:auto}.results{border:1px solid #e0e6ef;border-radius:10px;overflow:auto;background:#fff}.results table thead th{background:#f6f8fb;font-size:10px;text-transform:uppercase;letter-spacing:.04em}.results table tbody td,.results table tbody th{font-size:11px;padding:10px}
+.button,input[type=submit],input[type=button],.submit-row input,a.button{min-height:36px;padding:8px 13px;border-radius:8px;border:0;font-size:11px;font-weight:750;box-shadow:none}.object-tools a{border-radius:8px;background:#126fd1;font-size:10px}.object-tools a:hover{background:#0b5baa}.submit-row{padding:12px;border:1px solid #e0e6ef;border-radius:10px;background:#fff;box-shadow:none}
+input[type=text],input[type=password],input[type=email],input[type=url],input[type=number],input[type=tel],textarea,select,.vTextField{min-height:38px;padding:8px 10px;border:1px solid #d9e1ec;border-radius:8px;background:#fff;font-size:12px}textarea{min-height:92px}input:focus,textarea:focus,select:focus{border-color:#5ba4e9;outline:3px solid rgba(30,126,214,.1)}
+.form-row{padding:12px 0}.form-row label{font-size:11px;font-weight:700;color:#4c5a70}.help,.help-tooltip,.form-row p.help{font-size:10px;color:#7c879a}
+.selector{border-radius:10px;overflow:hidden}.messagelist li{border-radius:8px;font-size:11px}
+/* Home dashboard */
+.admin-page-heading{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px}.admin-page-heading h1{margin:5px 0 5px!important;font-size:28px!important}.admin-page-heading p{margin:0;color:#6c7890;font-size:12px}.admin-eyebrow{color:#126fd1;font-size:9px;font-weight:850;letter-spacing:.09em}.admin-quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}.admin-quick-card{display:flex;align-items:center;gap:12px;min-height:88px;padding:14px;border:1px solid #e0e6ef;border-radius:11px;background:#fff;color:#263550!important;transition:.16s ease}.admin-quick-card:hover{transform:translateY(-2px);border-color:#b7d6f4;box-shadow:0 10px 24px rgba(31,72,121,.08)}.admin-icon{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:9px;background:#edf6ff;color:#126fd1}.admin-icon svg{width:22px;height:22px}.admin-quick-card strong{display:block;font-size:12px}.admin-quick-card span span,.admin-quick-card div span{display:block;margin-top:3px;color:#7a869a;font-size:10px;line-height:1.45}.admin-apps-panel{padding:16px}.admin-section-title{margin-bottom:12px}.admin-section-title h2{margin:4px 0 0;font-size:17px!important}.admin-apps-panel .module{margin-bottom:10px;box-shadow:none}.admin-apps-panel .module:last-child{margin-bottom:0}
+@media(max-width:1000px){.admin-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#content{padding:18px}.academy-admin-brandcopy{display:none}}
+@media(max-width:700px){#header{padding:8px 12px}.academy-admin-logo{width:140px}.academy-admin-global{display:none}.admin-quick-grid{grid-template-columns:1fr}#content h1,.admin-page-heading h1{font-size:24px!important}}

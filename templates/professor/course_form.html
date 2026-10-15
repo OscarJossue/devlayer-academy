@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} · Devlayer Academy{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">NUEVO CURSO</span><h1>{{ title }}</h1><p>Primero define la información comercial y académica. Después podrás cargar módulos, videos, PDF y evaluaciones.</p></div></div>
+<section class="panel form-panel" style="max-width:900px"><div class="form-help-card"><strong>Flujo:</strong> crea el curso como borrador → agrega contenido → configura cuestionarios → envíalo a revisión del superadministrador.</div><form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Crear curso</button></form></section>
+{% endblock %}

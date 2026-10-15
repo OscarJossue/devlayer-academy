@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Categorías · Superadmin{% endblock %}{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">CATÁLOGO</span><h1>Categorías</h1><p>Crea categorías y subcategorías para organizar los cursos.</p></div><a class="btn" href="{% url 'superadmin:category_create' %}">Crear categoría</a></div>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Nombre</th><th>Categoría superior</th><th>Orden</th><th>Estado</th></tr></thead><tbody>{% for item in categories_list %}<tr><td><strong>{{ item.name }}</strong><small>{{ item.description|truncatechars:80 }}</small></td><td>{{ item.parent|default:'Principal' }}</td><td>{{ item.order }}</td><td><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Activa{% else %}Desactivada{% endif %}</span></td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mis pagos · Devlayer Academy{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">PAGOS Y ACCESOS</span><h1>Mis pagos</h1><p>Consulta tus órdenes y el estado de los comprobantes enviados para habilitar cursos.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Orden</th><th>Curso</th><th>Monto</th><th>Estado</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>{% for order in orders %}<tr><td><strong>{{ order.code }}</strong></td><td>{{ order.course.title }}</td><td>{{ order.amount }} {{ order.currency }}</td><td><span class="badge badge-neutral">{{ order.get_status_display }}</span></td><td>{{ order.created_at|date:'d/m/Y H:i' }}</td><td><a class="btn btn-secondary btn-small" href="{% url 'billing:order' order.id %}">Ver detalle</a></td></tr>{% empty %}<tr><td colspan="6">Todavía no tienes órdenes registradas.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

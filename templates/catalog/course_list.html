@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Cursos · Devlayer Academy{% endblock %}
+{% block content %}
+<section class="section-tight">
+  <div class="container">
+    <div class="catalog-banner">
+      <span class="eyebrow">CATÁLOGO DE FORMACIÓN</span>
+      <h1>Cursos disponibles</h1>
+      <p>Explora por categoría y encuentra una ruta de aprendizaje que se adapte a lo que quieres construir.</p>
+    </div>
+  </div>
+</section>
+<section class="section-tight">
+  <div class="container">
+    <div class="chips">
+      <a href="{% url 'catalog:course_list' %}">Todos</a>
+      {% for cat in categories %}<a href="?categoria={{ cat.slug }}">{{ cat.name }}</a>{% endfor %}
+    </div>
+    <div class="course-grid">
+      {% for course in courses %}{% include 'partials/course_card.html' with course=course %}{% empty %}<div class="empty">No hay cursos publicados en esta categoría.</div>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

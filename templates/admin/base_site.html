@@ -1,0 +1,11 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}{{ title }} | Devlayer Academy{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/admin-academy.css' %}">{% endblock %}
+{% block branding %}
+<div class="academy-admin-brand">
+  <a href="{% url 'admin:index' %}" class="academy-admin-logo"><img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio"></a>
+  <div class="academy-admin-brandcopy"><strong>Devlayer Academy</strong><span>Superadministración</span></div>
+</div>
+{% endblock %}
+{% block nav-global %}<div class="academy-admin-global"><a href="{% url 'catalog:professor_dashboard' %}">Vista profesor</a><a href="{% url 'catalog:course_list' %}">Ver academia</a></div>{% endblock %}

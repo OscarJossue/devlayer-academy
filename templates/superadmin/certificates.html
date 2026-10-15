@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Certificados · Superadmin{% endblock %}{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">CERTIFICACIÓN</span><h1>Certificados</h1><p>Consulta códigos, estudiante, curso y estado de los certificados emitidos.</p></div></div>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Código</th><th>Estudiante</th><th>Curso</th><th>Emisión</th><th>Estado</th></tr></thead><tbody>{% for item in certificates_list %}<tr><td><strong>{{ item.code }}</strong></td><td>{{ item.enrollment.user.display_name }}<small>{{ item.enrollment.user.email }}</small></td><td>{{ item.enrollment.course.title }}</td><td>{{ item.issued_at|date:'d/m/Y H:i' }}</td><td><span class="sa-status {% if item.status == 'VALID' %}ok{% else %}danger{% endif %}">{{ item.get_status_display }}</span></td></tr>{% empty %}<tr><td colspan="5">No hay certificados emitidos.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
