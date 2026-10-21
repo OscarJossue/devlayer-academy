@@ -1,5 +1,6 @@
 from openpyxl import load_workbook
 from django.db import transaction
+
 from .models import Choice, Question
 
 HEADERS = [
@@ -7,7 +8,7 @@ HEADERS = [
     'respuesta_correcta', 'explicacion',
 ]
 
-OPEN_TYPE = 'OPEN'
+ALLOWED_TYPES = {Question.Type.SINGLE, Question.Type.MULTIPLE}
 TYPE_MAP = {
     'unica': Question.Type.SINGLE,
     'única': Question.Type.SINGLE,
@@ -18,18 +19,19 @@ TYPE_MAP = {
     'múltiple': Question.Type.MULTIPLE,
     'seleccion_multiple': Question.Type.MULTIPLE,
     'selección_múltiple': Question.Type.MULTIPLE,
-    'verdadero_falso': Question.Type.TRUE_FALSE,
-    'true_false': Question.Type.TRUE_FALSE,
-    'abierta': OPEN_TYPE,
-    'pregunta_abierta': OPEN_TYPE,
-    'open': OPEN_TYPE,
 }
 
 
 def question_type_label(value):
-    if value == OPEN_TYPE:
-        return 'Pregunta abierta'
-    return dict(Question.Type.choices).get(value, value)
+    return {
+        Question.Type.SINGLE: 'Selección única',
+        Question.Type.MULTIPLE: 'Varias selecciones',
+    }.get(value, value)
+
+
+def _correct_letters(raw_value):
+    raw = str(raw_value or '').upper().replace(' ', '').replace(';', ',')
+    return [part for part in raw.split(',') if part]
 
 
 def read_question_xlsx(upload):
@@ -45,20 +47,23 @@ def read_question_xlsx(upload):
     missing = [h for h in HEADERS if h not in headers]
     if missing:
         raise ValueError('Faltan columnas obligatorias: ' + ', '.join(missing))
+
     rows = []
     errors = []
     for index, values_row in enumerate(values, start=2):
         raw = dict(zip(headers, values_row))
         if not any(v not in (None, '') for v in values_row):
             continue
+
         text = str(raw.get('pregunta') or '').strip()
         qtype = TYPE_MAP.get(str(raw.get('tipo') or 'unica').strip().lower())
         if not text:
             errors.append(f'Fila {index}: falta la pregunta.')
             continue
-        if not qtype:
-            errors.append(f'Fila {index}: tipo de pregunta no reconocido.')
+        if qtype not in ALLOWED_TYPES:
+            errors.append(f'Fila {index}: tipo no permitido. Usa únicamente "unica" o "multiple".')
             continue
+
         row = {
             'fila': index,
             'pregunta': text,
@@ -68,19 +73,31 @@ def read_question_xlsx(upload):
             'opcion_b': str(raw.get('opcion_b') or '').strip(),
             'opcion_c': str(raw.get('opcion_c') or '').strip(),
             'opcion_d': str(raw.get('opcion_d') or '').strip(),
-            'respuesta_correcta': str(raw.get('respuesta_correcta') or '').upper().replace(' ', ''),
+            'respuesta_correcta': ','.join(_correct_letters(raw.get('respuesta_correcta'))),
             'explicacion': str(raw.get('explicacion') or '').strip(),
         }
-        if qtype != OPEN_TYPE:
-            options = [row['opcion_a'], row['opcion_b'], row['opcion_c'], row['opcion_d']]
-            if qtype == Question.Type.TRUE_FALSE and not any(options):
-                row['opcion_a'], row['opcion_b'] = 'Verdadero', 'Falso'
-                if not row['respuesta_correcta']:
-                    row['respuesta_correcta'] = 'A'
-            if not any([row['opcion_a'], row['opcion_b'], row['opcion_c'], row['opcion_d']]):
-                errors.append(f'Fila {index}: una pregunta cerrada debe tener opciones.')
-            if not row['respuesta_correcta']:
-                errors.append(f'Fila {index}: falta respuesta_correcta.')
+        options = {
+            'A': row['opcion_a'],
+            'B': row['opcion_b'],
+            'C': row['opcion_c'],
+            'D': row['opcion_d'],
+        }
+        available = {letter for letter, value in options.items() if value}
+        correct = _correct_letters(row['respuesta_correcta'])
+        correct_set = set(correct)
+
+        if len(available) < 2:
+            errors.append(f'Fila {index}: agrega al menos dos opciones de respuesta.')
+        if not correct:
+            errors.append(f'Fila {index}: falta respuesta_correcta.')
+        if correct_set - available:
+            invalid = ', '.join(sorted(correct_set - available))
+            errors.append(f'Fila {index}: respuesta_correcta usa opciones vacías o inexistentes: {invalid}.')
+        if qtype == Question.Type.SINGLE and len(correct_set) != 1:
+            errors.append(f'Fila {index}: una pregunta de tipo "unica" debe tener exactamente una respuesta correcta.')
+        if qtype == Question.Type.MULTIPLE and len(correct_set) < 2:
+            errors.append(f'Fila {index}: una pregunta de tipo "multiple" debe tener dos o más respuestas correctas.')
+
         rows.append(row)
     return rows, errors
 
@@ -90,13 +107,30 @@ def import_question_rows(quiz, rows):
     created = 0
     errors = []
     next_order = quiz.questions.count() + 1
-    valid_types = {x[0] for x in Question.Type.choices} | {OPEN_TYPE}
     for row in rows:
         qtype = row.get('tipo')
         text = str(row.get('pregunta') or '').strip()
-        if not text or qtype not in valid_types:
-            errors.append(f"Fila {row.get('fila', '?')}: pregunta inválida.")
+        if not text or qtype not in ALLOWED_TYPES:
+            errors.append(f"Fila {row.get('fila', '?')}: pregunta inválida o tipo no permitido.")
             continue
+
+        options = []
+        for letter in ['A', 'B', 'C', 'D']:
+            value = str(row.get(f'opcion_{letter.lower()}') or '').strip()
+            if value:
+                options.append((letter, value))
+        correct = set(_correct_letters(row.get('respuesta_correcta')))
+        available = {letter for letter, _ in options}
+        if len(options) < 2 or not correct or correct - available:
+            errors.append(f"Fila {row.get('fila', '?')}: opciones o respuestas correctas inválidas.")
+            continue
+        if qtype == Question.Type.SINGLE and len(correct) != 1:
+            errors.append(f"Fila {row.get('fila', '?')}: tipo única requiere una sola respuesta correcta.")
+            continue
+        if qtype == Question.Type.MULTIPLE and len(correct) < 2:
+            errors.append(f"Fila {row.get('fila', '?')}: tipo múltiple requiere dos o más respuestas correctas.")
+            continue
+
         question = Question.objects.create(
             quiz=quiz,
             text=text,
@@ -105,17 +139,13 @@ def import_question_rows(quiz, rows):
             order=next_order,
         )
         next_order += 1
-        if qtype != OPEN_TYPE:
-            correct_raw = str(row.get('respuesta_correcta') or '').upper().replace(' ', '')
-            correct = {x for x in correct_raw.replace(';', ',').split(',') if x}
-            for pos, letter in enumerate(['A', 'B', 'C', 'D'], start=1):
-                value = str(row.get(f'opcion_{letter.lower()}') or '').strip()
-                if value:
-                    Choice.objects.create(question=question, text=value, is_correct=letter in correct, order=pos)
-            if not question.choices.filter(is_correct=True).exists():
-                question.delete()
-                errors.append(f"Fila {row.get('fila', '?')}: pregunta omitida porque no tiene respuesta correcta.")
-                continue
+        for pos, (letter, value) in enumerate(options, start=1):
+            Choice.objects.create(
+                question=question,
+                text=value,
+                is_correct=letter in correct,
+                order=pos,
+            )
         created += 1
     return created, errors
 
@@ -124,7 +154,7 @@ def import_question_rows(quiz, rows):
 def reuse_questions(target_quiz, source_questions):
     copied = 0
     order = target_quiz.questions.count() + 1
-    for source in source_questions.prefetch_related('choices'):
+    for source in source_questions.filter(question_type__in=ALLOWED_TYPES).prefetch_related('choices'):
         question = Question.objects.create(
             quiz=target_quiz,
             text=source.text,
@@ -135,9 +165,6 @@ def reuse_questions(target_quiz, source_questions):
         )
         order += 1
         for choice in source.choices.all():
-            # No copiamos respuestas temporales creadas por estudiantes en preguntas abiertas.
-            if source.question_type == OPEN_TYPE and choice.text.startswith('__RESPUESTA__'):
-                continue
             Choice.objects.create(
                 question=question,
                 text=choice.text,

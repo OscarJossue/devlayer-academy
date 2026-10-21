@@ -1,0 +1,48 @@
+{% extends 'tenancy/system_base.html' %}{% load static %}
+{% block title %}Resumen · Control del sistema{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head">
+  <div><span class="sys-kicker">CONTROL MAESTRO</span><h1>Resumen de la plataforma</h1><p>Academias, planes, vencimientos y finanzas de licencias en una sola vista.</p></div>
+  <div class="sys-actions"><a class="sys-btn secondary" href="{% url 'tenancy:plan_list' %}">Gestionar planes</a><a class="sys-btn primary" href="{% url 'tenancy:academy_create' %}">Crear academia</a></div>
+</div>
+
+<div class="sys-stat-grid sys-stat-grid-auto">
+  <a class="sys-stat" href="{% url 'tenancy:academy_list' %}"><span><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg></span><div><strong>{{ stats.academies }}</strong><small>Academias</small></div></a>
+  <a class="sys-stat" href="{% url 'tenancy:plan_list' %}"><span><svg><use href="{% static 'icons/sprite.svg' %}#configuracion"></use></svg></span><div><strong>{{ stats.plans }}</strong><small>Planes activos</small></div></a>
+  <div class="sys-stat"><span><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><strong>{{ stats.active }}</strong><small>Licencias activas</small></div></div>
+  <div class="sys-stat"><span><svg><use href="{% static 'icons/sprite.svg' %}#reloj"></use></svg></span><div><strong>{{ stats.expiring_30 }}</strong><small>Vencen en 30 días</small></div></div>
+  <div class="sys-stat"><span><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.users }}</strong><small>Membresías</small></div></div>
+  <div class="sys-stat"><span><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ stats.courses }}</strong><small>Cursos registrados</small></div></div>
+</div>
+
+<section class="sys-finance-hero">
+  <div class="sys-finance-copy"><span class="sys-kicker">FINANZAS DE LICENCIAS</span><h2>Resumen comercial</h2><p>Valores de las licencias vendidas por la plataforma; no mezcla las ventas internas de las academias.</p></div>
+  <div class="sys-finance-metrics">
+    <div><small>Contratado</small><strong>${{ finance.contracted|floatformat:2 }}</strong></div>
+    <div><small>Cobrado</small><strong>${{ finance.collected|floatformat:2 }}</strong></div>
+    <div><small>Por cobrar</small><strong>${{ finance.receivable|floatformat:2 }}</strong></div>
+    <div><small>Valor/día activo</small><strong>${{ finance.daily|floatformat:2 }}</strong></div>
+  </div>
+  <a class="sys-btn secondary" href="{% url 'tenancy:system_finances' %}">Abrir finanzas</a>
+</section>
+
+<div class="sys-grid-2">
+  <section class="sys-panel">
+    <div class="sys-panel-head"><div><span class="sys-kicker">VENCIMIENTOS</span><h2>Licencias próximas</h2></div><a href="{% url 'tenancy:academy_list' %}">Ver academias</a></div>
+    <div class="sys-list">
+      {% for academy in expiring %}
+      <a class="sys-list-row" href="{% url 'tenancy:academy_detail' academy.id %}"><div><strong>{{ academy.name }}</strong><span>Vence {{ academy.license.ends_at|date:'d/m/Y' }} · ${{ academy.license.daily_cost|floatformat:2 }}/día</span></div>{% if academy.license.days_remaining < 0 %}<span class="sys-status danger">Vencida</span>{% elif academy.license.days_remaining <= 7 %}<span class="sys-status warning">{{ academy.license.days_remaining }} días</span>{% else %}<span class="sys-status ok">{{ academy.license.days_remaining }} días</span>{% endif %}</a>
+      {% empty %}<div class="sys-empty">No hay licencias con fecha de vencimiento.</div>{% endfor %}
+    </div>
+  </section>
+  <section class="sys-panel">
+    <div class="sys-panel-head"><div><span class="sys-kicker">PLANES</span><h2>Oferta comercial</h2></div><a href="{% url 'tenancy:plan_list' %}">Administrar</a></div>
+    <div class="sys-list">{% for plan in plans_recent %}<a class="sys-list-row" href="{% url 'tenancy:plan_edit' plan.id %}"><div><strong>{{ plan.name }}</strong><span>{{ plan.limits_summary }}</span></div><strong>{{ plan.currency }} {{ plan.price|floatformat:2 }}</strong></a>{% empty %}<div class="sys-empty">Crea un plan antes de registrar una academia.</div>{% endfor %}</div>
+  </section>
+</div>
+
+<section class="sys-panel">
+  <div class="sys-panel-head"><div><span class="sys-kicker">CLIENTES</span><h2>Academias recientes</h2></div><a href="{% url 'tenancy:academy_list' %}">Ver todas</a></div>
+  <div class="sys-list sys-list-grid">{% for academy in academies_recent %}<a class="sys-client-card" style="--client-brand: {{ academy.brand_color|default:'#0b69ff' }}" href="{% url 'tenancy:academy_detail' academy.id %}"><div class="sys-client-card-top"><span class="sys-client-avatar">{{ academy.name|slice:':1'|upper }}</span><span class="sys-status {% if academy.access_enabled %}ok{% else %}danger{% endif %}">{% if academy.access_enabled %}Activa{% else %}Bloqueada{% endif %}</span></div><strong>{{ academy.name }}</strong><small>{{ academy.license.plan_name }} · {{ academy.license.get_financial_status_display }}</small><div class="sys-client-meta"><span>{% if academy.license.ends_at %}{{ academy.license.days_remaining }} días restantes{% else %}Sin vencimiento{% endif %}</span><span>${{ academy.license.price|floatformat:2 }}</span></div></a>{% empty %}<div class="sys-empty">Todavía no hay academias.</div>{% endfor %}</div>
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.masterclass_title|default:'Clase magistral' }} · {{ course.title }}{% endblock %}
+{% block content %}
+<section class="player-layout">
+  {% include 'learning/_course_sidebar.html' %}
+  <div class="lesson-main masterclass-main">
+    <div class="lesson-header">
+      <div><span class="eyebrow">CIERRE DEL CURSO · EN VIVO</span><h1>{{ course.masterclass_title|default:'Clase magistral y resolución de dudas' }}</h1></div>
+      <div class="lesson-header-meta">{{ course.masterclass_duration_minutes }} min aprox.</div>
+    </div>
+
+    <section class="panel masterclass-hero">
+      <div class="masterclass-live-badge">CLASE MAGISTRAL</div>
+      <h2>Un espacio para cerrar el curso, aclarar dudas y llevarte las ideas principales.</h2>
+      <div class="prose">{{ course.masterclass_description|default:'Repasaremos los puntos principales del curso, daremos pautas finales y resolveremos preguntas y dudas de los estudiantes.'|linebreaks }}</div>
+      <div class="masterclass-facts">
+        <div><span>Fecha y hora</span><strong>{% if course.masterclass_scheduled_at %}{{ course.masterclass_scheduled_at|date:'d/m/Y H:i' }}{% else %}Por confirmar{% endif %}</strong></div>
+        <div><span>Duración</span><strong>{{ course.masterclass_duration_minutes }} min</strong></div>
+        <div><span>Modalidad</span><strong>Videoconferencia en vivo</strong></div>
+      </div>
+      {% if course.masterclass_meeting_url %}<a class="btn masterclass-join" href="{{ course.masterclass_meeting_url }}" target="_blank" rel="noopener noreferrer">Entrar a la videoconferencia</a>{% else %}<div class="message warning">El profesor todavía no ha publicado el enlace de la videoconferencia.</div>{% endif %}
+    </section>
+
+    <section class="panel lesson-content">
+      <div class="lesson-content-head"><span class="eyebrow">QUÉ HAREMOS</span><h2>Objetivo de la clase magistral</h2></div>
+      <div class="masterclass-agenda">
+        <div><strong>1</strong><span>Resumen breve de los conceptos más importantes del curso.</span></div>
+        <div><strong>2</strong><span>Indicaciones y pautas prácticas para aplicar lo aprendido.</span></div>
+        <div><strong>3</strong><span>Espacio abierto para preguntas, dudas y casos de los estudiantes.</span></div>
+        <div><strong>4</strong><span>Cierre del curso y próximos pasos recomendados.</span></div>
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}

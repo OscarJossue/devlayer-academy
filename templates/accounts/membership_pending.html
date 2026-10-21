@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Estado de cuenta · {{ academy.name }}{% endblock %}
+{% block content %}
+<section class="auth-page academy-auth" style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};"><div class="container narrow"><div class="panel certificate-panel center">
+  <div class="academy-auth-logo">{% if academy.logo %}<img src="{% url 'tenancy:academy_logo' academy.slug %}?v={{ academy.updated_at|date:'U' }}" alt="{{ academy.name }}">{% else %}<img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">{% endif %}</div>
+  <span class="eyebrow">{{ academy.name|upper }}</span><h1 style="margin:12px 0 10px">Estado de tu cuenta</h1>
+  {% if membership and membership.status == 'BLOCKED' %}<p class="muted">Tu cuenta está suspendida en esta academia. Esto no afecta otras academias a las que pertenezcas.</p>{% elif membership and membership.status == 'REJECTED' %}<p class="muted">Tu cuenta no está habilitada en esta academia. Contacta a la administración.</p>{% elif membership and membership.status == 'PENDING' %}<p class="muted">Esta cuenta proviene de una versión anterior y todavía necesita ser habilitada por la administración.</p>{% else %}<p class="muted">Tu cuenta está activa. La verificación del correo mejora la seguridad, pero el acceso a cada curso depende de su matrícula y del pago aprobado.</p>{% endif %}
+  {% if user.is_authenticated and not user.email_verified and not membership.email_verification_bypassed %}<p class="muted">Tu correo todavía no está verificado. Puedes seguir usando tu cuenta y solicitar un nuevo mensaje de verificación cuando quieras.</p><form method="post" action="{% url 'accounts:resend_verification' %}" style="margin-top:18px">{% csrf_token %}<button class="btn" type="submit">Reenviar verificación</button></form>{% elif membership.email_verification_bypassed %}<p class="muted">Tu cuenta está habilitada aunque el correo siga sin verificar. Puedes verificarlo más adelante.</p>{% endif %}
+  <div class="page-actions" style="margin-top:20px"><a class="btn btn-secondary" href="{% url 'tenancy:academy_public' academy.slug %}">Volver al catálogo</a> <a class="btn" href="{% url 'tenancy:academy_login' academy.slug %}">Intentar iniciar sesión</a></div>
+</div></div></section>
+{% endblock %}

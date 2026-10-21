@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ academy.name }} · Cursos{% endblock %}
+{% block content %}
+<section class="academy-public-hero" style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};">
+  <div class="container academy-public-hero-grid">
+    <div class="academy-public-copy">
+      <div class="academy-public-logo">{% if academy.logo %}<img src="{% url 'tenancy:academy_logo' academy.slug %}?v={{ academy.updated_at|date:'U' }}" alt="{{ academy.name }}">{% else %}<img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">{% endif %}</div>
+      <span class="eyebrow">ACADEMIA EN LÍNEA</span>
+      <h1>{{ academy.name }}</h1>
+      <p class="academy-public-tagline">{{ academy.tagline|default:'Aprende a tu ritmo con rutas claras, evaluaciones y certificados.' }}</p>
+      {% if academy.public_description %}<p class="academy-public-description">{{ academy.public_description }}</p>{% endif %}
+      <div class="academy-public-actions"><a class="btn" href="{% url 'tenancy:academy_register' academy.slug %}">Crear cuenta</a><a class="btn btn-secondary" href="{% url 'tenancy:academy_login' academy.slug %}">Ya tengo cuenta</a></div>
+    </div>
+    <div class="academy-public-summary">
+      <div><strong>{{ courses|length }}</strong><span>curso{{ courses|length|pluralize:'s' }} disponible{{ courses|length|pluralize:'s' }}</span></div>
+      <div><strong>{{ categories|length }}</strong><span>categoría{{ categories|length|pluralize:'s' }}</span></div>
+      <div><strong>100%</strong><span>en línea</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section-tight academy-public-catalog" style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};">
+  <div class="container">
+    <div class="catalog-heading-row"><div><span class="eyebrow">CATÁLOGO</span><h2>Cursos disponibles</h2><p>Explora la oferta de {{ academy.name }}.</p></div></div>
+    {% if categories %}<div class="academy-category-filter"><a class="{% if not category_filter %}active{% endif %}" href="{% url 'tenancy:academy_public' academy.slug %}">Todos</a>{% for category in categories %}<a class="{% if category_filter == category.slug %}active{% endif %}" href="{% url 'tenancy:academy_public' academy.slug %}?categoria={{ category.slug }}">{{ category.name }}</a>{% endfor %}</div>{% endif %}
+    <div class="course-grid academy-course-grid">{% for course in courses %}{% include 'partials/course_card.html' with course=course academy=academy %}{% empty %}<div class="empty-state academy-empty-state"><strong>Aún no hay cursos publicados.</strong><p>Cuando el equipo de la academia publique contenido, aparecerá aquí.</p></div>{% endfor %}</div>
+  </div>
+</section>
+{% endblock %}

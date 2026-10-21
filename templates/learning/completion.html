@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Curso completado · {{ course.title }}{% endblock %}
+{% block content %}
+<section class="section"><div class="container completion-wrap">
+  <div class="panel completion-hero">
+    <span class="eyebrow">CURSO COMPLETADO</span>
+    <div class="completion-mark">✓</div>
+    <h1>{{ course.title }}</h1>
+    <p>Completaste la ruta de aprendizaje y las evaluaciones obligatorias.</p>
+    <div class="completion-kpis"><div><strong>100%</strong><span>Progreso</span></div><div><strong>{{ course.estimated_duration_label }}</strong><span>Duración aproximada</span></div><div><strong>{{ attempts|length }}</strong><span>Evaluaciones realizadas</span></div></div>
+    <div class="actions" style="justify-content:center"><a class="btn btn-secondary" href="{% url 'learning:dashboard' %}">Volver a mis cursos</a>{% if course.masterclass_enabled %}<a class="btn btn-secondary" href="{% url 'learning:masterclass' course.slug %}">Clase magistral</a>{% endif %}{% if certificate %}<a class="btn" href="{% url 'certificates:pdf' certificate.code %}">Ver certificado</a>{% endif %}</div>
+  </div>
+
+  <div class="completion-grid">
+    <section class="panel"><span class="eyebrow">LO QUE APRENDISTE</span><h2>Resumen de tu recorrido</h2><div class="completion-modules">{% for module in modules %}<article><span>{{ module.order }}</span><div><strong>{{ module.title }}</strong><p>{{ module.description|default:'Módulo completado.' }}</p><small>{{ module.lessons.count }} clase{{ module.lessons.count|pluralize:'s' }}</small></div></article>{% endfor %}</div></section>
+    <section class="panel"><span class="eyebrow">RESULTADOS</span><h2>Tus evaluaciones</h2><div class="completion-results">{% for attempt in attempts %}<div><span>{{ attempt.quiz.title }}</span><strong class="{% if attempt.passed %}ok-text{% else %}danger-text{% endif %}">{{ attempt.score|default:0 }}%</strong></div>{% empty %}<p class="muted">Este curso no requería evaluaciones.</p>{% endfor %}</div>{% if course.certificate_enabled %}<div class="message success" style="margin-top:18px">Este curso incluye certificado cuando se cumplen todos los requisitos.</div>{% else %}<div class="message" style="margin-top:18px">Este curso finaliza sin certificado.</div>{% endif %}</section>
+  </div>
+</div></section>
+{% endblock %}

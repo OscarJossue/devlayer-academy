@@ -1,23 +1,30 @@
 {% extends 'base.html' %}
-{% block title %}Ingresar · Devlayer Academy{% endblock %}
+{% load static %}
+{% block title %}Ingresar · {% if academy %}{{ academy.name }}{% elif request.academy %}{{ request.academy.name }}{% else %}Devlayer Academy{% endif %}{% endblock %}
 {% block content %}
-<section class="auth-page"><div class="container">
-  <div class="auth-shell">
-    <aside class="auth-aside">
-      <span class="eyebrow">DEVLAYER ACADEMY</span>
-      <h2>Continúa donde te quedaste.</h2>
-      <p>Accede a tus cursos, progreso, evaluaciones y certificados desde un único lugar.</p>
-      <div class="auth-points">
-        <div class="auth-point"><span class="auth-point-mark">✓</span> Progreso guardado automáticamente</div>
-        <div class="auth-point"><span class="auth-point-mark">✓</span> Evaluaciones por módulo</div>
-        <div class="auth-point"><span class="auth-point-mark">✓</span> Certificados verificables</div>
+<section class="auth-page academy-auth"{% if academy %} style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};"{% endif %}>
+  <div class="container">
+    <div class="auth-shell academy-auth-shell">
+      <aside class="auth-aside academy-auth-aside">
+        {% if academy %}
+          <div class="academy-auth-logo">
+            {% if academy.logo %}<img src="{% url 'tenancy:academy_logo' academy.slug %}?v={{ academy.updated_at|date:'U' }}" alt="{{ academy.name }}">{% else %}<img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">{% endif %}
+          </div>
+          <span class="eyebrow">{{ academy.name|upper }}</span>
+          <h2>{{ academy.tagline|default:'Continúa donde te quedaste.' }}</h2>
+          <p>{{ academy.public_description|default:'Accede a tus cursos, progreso, evaluaciones y, cuando corresponda, certificados desde un único lugar.' }}</p>
+        {% else %}
+          <span class="eyebrow">ACADEMIA</span><h2>Continúa donde te quedaste.</h2><p>Accede a tus cursos, progreso, evaluaciones y, cuando corresponda, certificados desde un único lugar.</p>
+        {% endif %}
+        <div class="auth-points"><div class="auth-point"><span class="auth-point-mark">✓</span> Progreso guardado automáticamente</div><div class="auth-point"><span class="auth-point-mark">✓</span> Evaluaciones por módulo</div><div class="auth-point"><span class="auth-point-mark">✓</span> Certificados verificables cuando el curso los incluye</div></div>
+      </aside>
+      <div class="auth-main">
+        <span class="eyebrow">ACCESO A LA ACADEMIA</span><h1>Iniciar sesión</h1><p>Ingresa con el correo registrado en tu academia.</p>
+        <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Ingresar a mi cuenta</button></form>
+        <div class="split-links"><a href="{% url 'tenancy:academy_register' academy.slug %}">Crear una cuenta</a><a href="{% url 'tenancy:academy_password_reset' academy.slug %}">Olvidé mi contraseña</a></div>
+        {% if academy %}<a class="auth-back-link" href="{% url 'tenancy:academy_public' academy.slug %}">← Volver a {{ academy.name }}</a>{% endif %}
       </div>
-    </aside>
-    <div class="auth-main">
-      <span class="eyebrow">ACCESO</span><h1>Iniciar sesión</h1><p>Ingresa con el correo registrado en la academia.</p>
-      <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Ingresar a mi cuenta</button></form>
-      <div class="split-links"><a href="{% url 'accounts:register' %}">Crear una cuenta</a><a href="{% url 'accounts:password_reset' %}">Olvidé mi contraseña</a></div>
     </div>
   </div>
-</div></section>
+</section>
 {% endblock %}

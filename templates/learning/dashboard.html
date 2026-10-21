@@ -11,7 +11,13 @@
   <a class="quick-card" href="{% url 'billing:history' %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>Pagos y órdenes</strong><span>Revisa tus solicitudes de acceso</span></div></a>
 </div>
 
-{% if not user.email_verified %}<div class="message warning" style="margin-bottom:18px">Tu correo todavía no está verificado. <a href="{% url 'accounts:verification_pending' %}" style="font-weight:800">Verificar ahora</a>.</div>{% endif %}
+{% if not user.email_verified %}
+<section class="panel" style="margin-bottom:18px">
+  <div class="section-head" style="margin-bottom:8px"><div><span class="eyebrow">SEGURIDAD DE TU CUENTA</span><h2>Correo pendiente de verificar</h2></div></div>
+  <p class="muted" style="margin:0 0 14px">Puedes explorar cursos, registrar pagos y usar cualquier curso que la academia te haya habilitado. Verificar <strong>{{ user.email }}</strong> protege tu cuenta y permite recuperar tu contraseña por correo.</p>
+  <form method="post" action="{% url 'accounts:resend_verification' %}">{% csrf_token %}<input type="hidden" name="next" value="{% url 'learning:dashboard' %}"><button class="btn btn-small" type="submit">Reenviar correo de verificación</button></form>
+</section>
+{% endif %}
 <div class="section-head" style="margin-bottom:14px"><div><span class="eyebrow">TUS CURSOS</span><h2>Continúa aprendiendo</h2></div></div>
 <div class="student-course-grid">
   {% for card in cards %}

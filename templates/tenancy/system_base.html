@@ -1,0 +1,68 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Control del sistema · Devlayer Academy{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
+  <link rel="stylesheet" href="{% static 'css/system-owner.css' %}">
+</head>
+<body>
+<div class="sys-shell" data-system-shell>
+  <aside class="sys-sidebar" data-system-sidebar>
+    <div class="sys-sidebar-head">
+      <a class="sys-brand" href="{% url 'tenancy:system_dashboard' %}">
+        <img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">
+        <div><strong>Academy Control</strong><span>Administrador maestro</span></div>
+      </a>
+      <button class="sys-sidebar-close" type="button" data-system-close aria-label="Cerrar menú">×</button>
+    </div>
+    <nav>
+      <span class="sys-nav-title">CONTROL DEL SISTEMA</span>
+      <a href="{% url 'tenancy:system_dashboard' %}" class="{% if request.resolver_match.url_name == 'system_dashboard' %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#inicio"></use></svg>Resumen</a>
+      <a href="{% url 'tenancy:academy_list' %}" class="{% if 'academy_' in request.resolver_match.url_name %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg>Academias</a>
+      <a href="{% url 'tenancy:plan_list' %}" class="{% if 'plan_' in request.resolver_match.url_name %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#configuracion"></use></svg>Planes</a>
+      <a href="{% url 'tenancy:system_finances' %}" class="{% if request.resolver_match.url_name == 'system_finances' %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg>Finanzas</a>
+      <a href="{% url 'tenancy:academy_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Nueva academia</a>
+    </nav>
+    <div class="sys-sidebar-note">
+      <span>CUENTA MAESTRA</span>
+      <strong>Solo controla academias y licencias.</strong>
+      <p>Los dueños administran el contenido y las finanzas internas de su propia academia.</p>
+    </div>
+    <div class="sys-sidebar-footer">
+      <div class="sys-owner"><span>{{ user.display_name|slice:':1'|upper }}</span><div><strong>{{ user.display_name }}</strong><small>{{ user.email }}</small></div></div>
+      <form method="post" action="{% url 'tenancy:system_logout' %}">{% csrf_token %}<button class="sys-nav-button" type="submit"><svg><use href="{% static 'icons/sprite.svg' %}#salir"></use></svg>Cerrar sesión</button></form>
+    </div>
+  </aside>
+  <div class="sys-overlay" data-system-overlay></div>
+  <div class="sys-main">
+    <header class="sys-topbar">
+      <div class="sys-topbar-left">
+        <button class="sys-mobile-menu" type="button" data-system-open aria-label="Abrir menú"><svg><use href="{% static 'icons/sprite.svg' %}#menu"></use></svg></button>
+        <div><span class="sys-kicker">DEVLAYER ACADEMY</span><strong>Licencias y academias</strong></div>
+      </div>
+      <a class="sys-btn primary compact" href="{% url 'tenancy:academy_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Nueva academia</a>
+    </header>
+    {% if messages %}<div class="sys-messages">{% for message in messages %}<div class="sys-alert {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    <main class="sys-content">{% block content %}{% endblock %}</main>
+  </div>
+</div>
+<script>
+(function(){
+  const shell=document.querySelector('[data-system-shell]');
+  const open=document.querySelector('[data-system-open]');
+  const close=document.querySelector('[data-system-close]');
+  const overlay=document.querySelector('[data-system-overlay]');
+  const set=(state)=>shell&&shell.classList.toggle('menu-open',state);
+  open&&open.addEventListener('click',()=>set(true));
+  close&&close.addEventListener('click',()=>set(false));
+  overlay&&overlay.addEventListener('click',()=>set(false));
+})();
+</script>
+</body>
+</html>

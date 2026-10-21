@@ -1,0 +1,24 @@
+{% extends 'tenancy/system_base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head">
+  <div><span class="sys-kicker">NUEVA LICENCIA</span><h1>{{ title }}</h1><p>{{ subtitle }}</p></div>
+</div>
+
+<section class="sys-panel sys-form-panel">
+  <div class="sys-info-strip">
+    <strong>Identidad visual administrada por el cliente</strong>
+    <span>DevLayer crea la academia, asigna el plan y entrega las credenciales del dueño. El dueño configurará después logo, color, frase, descripción pública y SMTP desde su propio panel.</span>
+  </div>
+  <form method="post" class="sys-form grid" data-academy-license-form>{% csrf_token %}
+    {% for field in form %}
+      {% if field.name == 'name' %}<div class="sys-form-section full"><strong>Datos contractuales de la academia</strong><span>Información necesaria para identificar al cliente y crear su slug.</span></div>{% endif %}
+      {% if field.name == 'plan' %}<div class="sys-form-section full"><strong>Plan y licencia</strong><span>Selecciona uno de tus planes. Precio, vigencia y cupos se tomarán automáticamente.</span></div>{% endif %}
+      {% if field.name == 'owner_first_name' %}<div class="sys-form-section full"><strong>Credenciales del dueño</strong><span>Esta cuenta administrará cursos, profesores, estudiantes, pagos y personalización de su academia.</span></div>{% endif %}
+      <label class="{% if field.name == 'notes' %}full{% endif %}"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>
+    {% endfor %}
+    {% if form.non_field_errors %}<div class="sys-alert danger full">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="full sys-actions"><button class="sys-btn primary" type="submit">Crear academia</button><a class="sys-btn secondary" href="{% url 'tenancy:academy_list' %}">Cancelar</a></div>
+  </form>
+</section>
+{% endblock %}

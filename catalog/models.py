@@ -50,6 +50,10 @@ class Course(models.Model):
         BLOCK = 'BLOCK', 'Bloquear al certificar'
         DAYS = 'DAYS', 'Mantener X días después'
 
+    class CertificateStyleMode(models.TextChoices):
+        ACADEMY = 'ACADEMY', 'Usar diseño de la academia'
+        CUSTOM = 'CUSTOM', 'Diseño personalizado para este curso'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=180)
     slug = models.SlugField(max_length=200, unique=True)
@@ -68,6 +72,32 @@ class Course(models.Model):
     post_certificate_policy = models.CharField(max_length=20, choices=PostCertificatePolicy.choices, default=PostCertificatePolicy.BLOCK)
     post_certificate_days = models.PositiveIntegerField(null=True, blank=True)
     final_exam_required = models.BooleanField(default=True)
+
+    # Certificación es una decisión por curso. El diseño puede heredarse de la academia
+    # o personalizarse sin modificar el estilo global.
+    certificate_enabled = models.BooleanField(default=True, verbose_name='Este curso otorga certificado')
+    certificate_style_mode = models.CharField(max_length=20, choices=CertificateStyleMode.choices, default=CertificateStyleMode.ACADEMY, verbose_name='Diseño del certificado')
+    certificate_custom_title = models.CharField(max_length=180, blank=True, verbose_name='Título personalizado')
+    certificate_custom_subtitle = models.CharField(max_length=180, blank=True, verbose_name='Texto previo al estudiante')
+    certificate_custom_body = models.CharField(max_length=240, blank=True, verbose_name='Texto previo al curso')
+    certificate_custom_accent_color = models.CharField(max_length=7, blank=True, verbose_name='Color de acento')
+    certificate_custom_background_color = models.CharField(max_length=7, blank=True, verbose_name='Color de fondo')
+    certificate_custom_text_color = models.CharField(max_length=7, blank=True, verbose_name='Color de texto')
+    certificate_custom_signature_name = models.CharField(max_length=160, blank=True, verbose_name='Nombre de la firma')
+    certificate_custom_signature_role = models.CharField(max_length=160, blank=True, verbose_name='Cargo de la firma')
+    certificate_custom_signature_image = models.ImageField(upload_to='course_certificates/signatures/%Y/%m/', blank=True, null=True, verbose_name='Imagen de firma')
+    certificate_custom_footer = models.CharField(max_length=240, blank=True, verbose_name='Texto inferior')
+    certificate_custom_show_qr = models.BooleanField(default=True, verbose_name='Mostrar código QR')
+    certificate_custom_show_logo = models.BooleanField(default=True, verbose_name='Mostrar logo de la academia')
+
+    # Clase magistral / sesión en vivo opcional al final del curso.
+    masterclass_enabled = models.BooleanField(default=False, verbose_name='Habilitar clase magistral')
+    masterclass_title = models.CharField(max_length=180, blank=True, default='Clase magistral y resolución de dudas', verbose_name='Título')
+    masterclass_description = models.TextField(blank=True, verbose_name='Descripción')
+    masterclass_meeting_url = models.URLField(max_length=500, blank=True, verbose_name='Enlace de videoconferencia')
+    masterclass_scheduled_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha y hora')
+    masterclass_duration_minutes = models.PositiveIntegerField(default=60, verbose_name='Duración aproximada (minutos)')
+
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='courses_created')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='courses_approved')
     approved_at = models.DateTimeField(null=True, blank=True)
@@ -91,6 +121,30 @@ class Course(models.Model):
 
     def get_absolute_url(self):
         return reverse('catalog:course_detail', args=[self.slug])
+
+    @property
+    def estimated_duration_minutes(self):
+        """Duración aproximada calculada desde las clases publicadas."""
+        total = 0
+        for module in self.modules.filter(is_published=True).prefetch_related('lessons'):
+            total += sum(
+                int(lesson.duration_minutes or 0)
+                for lesson in module.lessons.all()
+                if lesson.is_published
+            )
+        return total
+
+    @property
+    def estimated_duration_label(self):
+        minutes = self.estimated_duration_minutes
+        if minutes <= 0:
+            return 'Duración por definir'
+        hours, remaining = divmod(minutes, 60)
+        if hours and remaining:
+            return f'{hours} h {remaining} min'
+        if hours:
+            return f'{hours} h'
+        return f'{remaining} min'
 
     @property
     def lead_instructor(self):

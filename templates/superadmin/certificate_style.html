@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Estilo de certificado · {{ academy.name }}{% endblock %}
+{% block content %}
+<section class="admin-page compact-page certificate-settings-page">
+  <div class="page-heading compact-heading">
+    <div><span class="eyebrow">CERTIFICACIÓN</span><h1>Estilo predeterminado</h1><p>Este diseño se aplica a los cursos que tengan certificado y elijan <strong>Usar diseño de la academia</strong>. Cada profesor puede personalizar su curso sin modificar este modelo.</p></div>
+    <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:certificate_style_preview' %}" target="_blank">Vista previa PDF</a></div>
+  </div>
+
+  <div class="certificate-editor-grid">
+    <section class="panel settings-panel">
+      <div class="settings-panel-head"><span class="eyebrow">DISEÑO GLOBAL</span><h2>Contenido y apariencia</h2><p>Configura textos, colores, firma, logo y QR con controles sencillos.</p></div>
+      <form method="post" enctype="multipart/form-data" class="form-stack" data-certificate-editor>{% csrf_token %}
+        {% include 'partials/form_fields.html' with form=form %}
+        <button class="btn" type="submit">Guardar estilo</button>
+      </form>
+    </section>
+
+    <section class="panel certificate-preview-panel" data-certificate-preview style="--cert-accent:{{ certificate_preview.accent_color }};--cert-bg:{{ certificate_preview.background_color }};--cert-text:{{ certificate_preview.text_color }};">
+      <div class="certificate-preview-sheet">
+        <div class="certificate-preview-accent"></div>
+        <div class="certificate-preview-logo" data-preview-logo>{% if academy.logo %}<img src="{% url 'tenancy:academy_logo' academy.slug %}?v={{ academy.updated_at|date:'U' }}" alt="{{ academy.name }}">{% else %}<img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">{% endif %}</div>
+        <div class="certificate-preview-content">
+          <span class="certificate-preview-title" data-preview="title">{{ certificate_preview.title }}</span>
+          <small data-preview="subtitle">{{ certificate_preview.subtitle }}</small>
+          <strong>Nombre del estudiante</strong>
+          <small data-preview="body">{{ certificate_preview.body }}</small>
+          <h3>Nombre del curso</h3>
+          <div class="certificate-preview-signature"><span></span><b data-preview="signature_name" data-fallback="Firma autorizada">{{ certificate_preview.signature_name|default:'Firma autorizada' }}</b><small data-preview="signature_role" data-fallback="Academia">{{ certificate_preview.signature_role|default:'Academia' }}</small></div>
+        </div>
+        <div class="certificate-preview-footer"><span data-preview="footer">{{ certificate_preview.footer }}</span><div class="fake-qr" data-preview-qr>QR</div></div>
+      </div>
+      <p class="muted small-text">La vista previa es representativa. El PDF final incluye código único, fecha real y QR de validación.</p>
+    </section>
+  </div>
+</section>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(function(){
+  const form=document.querySelector('[data-certificate-editor]');
+  const preview=document.querySelector('[data-certificate-preview]');
+  if(!form||!preview)return;
+  const map={
+    'id_certificate_title':'title','id_certificate_subtitle':'subtitle','id_certificate_body':'body',
+    'id_certificate_signature_name':'signature_name','id_certificate_signature_role':'signature_role','id_certificate_footer':'footer'
+  };
+  function refresh(){
+    Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id), out=preview.querySelector(`[data-preview="${key}"]`); if(el&&out)out.textContent=el.value||out.dataset.fallback||'';});
+    const accent=document.getElementById('id_certificate_accent_color'); if(accent)preview.style.setProperty('--cert-accent',accent.value||'{{ academy.brand_color }}');
+    const bg=document.getElementById('id_certificate_background_color'); if(bg)preview.style.setProperty('--cert-bg',bg.value||'#FFFFFF');
+    const text=document.getElementById('id_certificate_text_color'); if(text)preview.style.setProperty('--cert-text',text.value||'#172033');
+    const qr=document.getElementById('id_certificate_show_qr'), qrBox=preview.querySelector('[data-preview-qr]'); if(qr&&qrBox)qrBox.style.display=qr.checked?'grid':'none';
+    const logo=document.getElementById('id_certificate_show_logo'), logoBox=preview.querySelector('[data-preview-logo]'); if(logo&&logoBox)logoBox.style.display=logo.checked?'block':'none';
+  }
+  form.addEventListener('input',refresh); form.addEventListener('change',refresh); refresh();
+})();
+</script>
+{% endblock %}

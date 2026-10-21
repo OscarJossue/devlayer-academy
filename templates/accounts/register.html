@@ -1,23 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}Crear cuenta · Devlayer Academy{% endblock %}
+{% load static %}
+{% block title %}Crear cuenta · {% if selected_academy %}{{ selected_academy.name }}{% else %}Devlayer Academy{% endif %}{% endblock %}
 {% block content %}
-<section class="auth-page"><div class="container">
-  <div class="auth-shell">
-    <aside class="auth-aside">
-      <span class="eyebrow">NUEVO ESTUDIANTE</span>
-      <h2>Tu aprendizaje empieza aquí.</h2>
-      <p>Crea tu cuenta, verifica el correo y elige los cursos que quieres tomar.</p>
-      <div class="auth-points">
-        <div class="auth-point"><span class="auth-point-mark">01</span> Registra tu correo</div>
-        <div class="auth-point"><span class="auth-point-mark">02</span> Verifica tu cuenta</div>
-        <div class="auth-point"><span class="auth-point-mark">03</span> Elige tus cursos</div>
-      </div>
+<section class="auth-page academy-auth"{% if selected_academy %} style="--academy-brand: {{ selected_academy.brand_color|default:'#1458D6' }};"{% endif %}>
+  <div class="container"><div class="auth-shell academy-auth-shell">
+    <aside class="auth-aside academy-auth-aside">
+      {% if selected_academy %}<div class="academy-auth-logo">{% if selected_academy.logo %}<img src="{% url 'tenancy:academy_logo' selected_academy.slug %}?v={{ selected_academy.updated_at|date:'U' }}" alt="{{ selected_academy.name }}">{% else %}<img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">{% endif %}</div>{% endif %}
+      <span class="eyebrow">NUEVO ESTUDIANTE</span><h2>{% if selected_academy %}Únete a {{ selected_academy.name }}.{% else %}Tu aprendizaje empieza aquí.{% endif %}</h2><p>{% if selected_academy and selected_academy.tagline %}{{ selected_academy.tagline }}{% else %}Crea tu cuenta y empieza a explorar la academia. Te enviaremos un correo para verificar tu dirección.{% endif %}</p>
+      <div class="auth-points"><div class="auth-point"><span class="auth-point-mark">01</span> Registra tu cuenta</div><div class="auth-point"><span class="auth-point-mark">02</span> Explora los cursos</div><div class="auth-point"><span class="auth-point-mark">03</span> Solicita acceso al curso que quieras</div></div>
     </aside>
-    <div class="auth-main">
-      <span class="eyebrow">REGISTRO</span><h1>Crear cuenta</h1><p>Usa un correo válido: la verificación es obligatoria antes de entrar a los cursos.</p>
-      <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Crear mi cuenta</button></form>
-      <div class="split-links"><span class="muted">¿Ya tienes cuenta?</span><a href="{% url 'accounts:login' %}">Ingresar</a></div>
-    </div>
-  </div>
-</div></section>
+    <div class="auth-main"><span class="eyebrow">REGISTRO</span><h1>Crear cuenta</h1><p>La membresía se creará únicamente para esta academia. La misma cuenta puede pertenecer de forma independiente a otras academias.</p><form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Crear mi cuenta</button></form><div class="split-links"><span class="muted">¿Ya tienes cuenta?</span><a href="{% url 'tenancy:academy_login' selected_academy.slug %}">Ingresar</a></div>{% if selected_academy %}<a class="auth-back-link" href="{% url 'tenancy:academy_public' selected_academy.slug %}">← Volver al catálogo</a>{% endif %}</div>
+  </div></div>
+</section>
 {% endblock %}

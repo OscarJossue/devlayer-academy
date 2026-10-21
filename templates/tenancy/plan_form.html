@@ -1,0 +1,14 @@
+{% extends 'tenancy/system_base.html' %}
+{% block title %}{{ title }} · Control del sistema{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head"><div><span class="sys-kicker">PLAN COMERCIAL</span><h1>{{ title }}</h1><p>{{ subtitle }}</p></div></div>
+<section class="sys-panel sys-form-panel sys-form-narrow">
+  <form method="post" class="sys-form grid">{% csrf_token %}
+    {% for field in form %}
+      <label class="{% if field.name == 'description' %}full{% endif %}"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>
+    {% endfor %}
+    {% if form.non_field_errors %}<div class="sys-alert danger full">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="full sys-actions"><button class="sys-btn primary" type="submit">Guardar plan</button><a class="sys-btn secondary" href="{% url 'tenancy:plan_list' %}">Cancelar</a></div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'tenancy/system_base.html' %}{% load static %}
+{% block title %}{{ academy.name }} · Control del sistema{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head">
+  <div><span class="sys-kicker">ACADEMIA CLIENTE</span><h1>{{ academy.name }}</h1><p>{{ academy.legal_name|default:'Sin razón social registrada' }} · Slug: {{ academy.slug }}</p></div>
+  <div class="sys-actions"><a class="sys-btn secondary" href="{% url 'tenancy:academy_public' academy.slug %}" target="_blank" rel="noopener">Abrir academia</a><span class="sys-status large {% if academy.access_enabled %}ok{% else %}danger{% endif %}">{% if academy.access_enabled %}Licencia habilitada{% else %}Acceso bloqueado{% endif %}</span></div>
+</div>
+
+<div class="sys-license-overview">
+  <div><span class="sys-kicker">PLAN ACTUAL</span><h2>{{ academy.license.plan_name }}</h2><p>{{ academy.license.effective_status }} · {% if academy.license.ends_at %}vence {{ academy.license.ends_at|date:'d/m/Y' }}{% else %}sin vencimiento{% endif %}</p></div>
+  <div class="sys-license-number"><small>Valor</small><strong>{{ academy.license.currency }} {{ academy.license.price|floatformat:2 }}</strong><span>{{ academy.license.currency }} {{ academy.license.daily_cost|floatformat:2 }} / día</span></div>
+  <div class="sys-license-number"><small>Saldo</small><strong>{{ academy.license.currency }} {{ academy.license.balance_due|floatformat:2 }}</strong><span>{{ academy.license.get_financial_status_display }}</span></div>
+  <div class="sys-license-number"><small>Tiempo restante</small><strong>{% if academy.license.days_remaining != None %}{{ academy.license.days_remaining }}{% else %}∞{% endif %}</strong><span>{% if academy.license.days_remaining != None %}días{% else %}sin límite{% endif %}</span></div>
+</div>
+
+<div class="sys-usage-grid">
+  <div class="sys-usage-card"><span>Estudiantes activos</span><strong>{{ usage.students.used }} <small>/ {% if usage.students.unlimited %}∞{% else %}{{ usage.students.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.students.percent }}%"></i></div></div>
+  <div class="sys-usage-card"><span>Profesores</span><strong>{{ usage.professors.used }} <small>/ {% if usage.professors.unlimited %}∞{% else %}{{ usage.professors.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.professors.percent }}%"></i></div></div>
+  <div class="sys-usage-card"><span>Administradores</span><strong>{{ usage.admins.used }} <small>/ {% if usage.admins.unlimited %}∞{% else %}{{ usage.admins.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.admins.percent }}%"></i></div></div>
+  <div class="sys-usage-card"><span>Dueño</span><strong>{{ usage.owners.used }} <small>/ 1</small></strong><div><i style="width:{{ usage.owners.percent }}%"></i></div></div>
+</div>
+
+<div class="sys-actions wrap sys-license-actions">
+  <form method="post" action="{% url 'tenancy:license_action' academy.id %}">{% csrf_token %}<button name="action" value="activate" class="sys-btn success" type="submit">Activar</button></form>
+  <form method="post" action="{% url 'tenancy:license_action' academy.id %}">{% csrf_token %}<button name="action" value="suspend" class="sys-btn warning" type="submit">Suspender</button></form>
+  <form method="post" action="{% url 'tenancy:license_action' academy.id %}">{% csrf_token %}<button name="action" value="extend_30" class="sys-btn secondary" type="submit">+30 días</button></form>
+  <form method="post" action="{% url 'tenancy:license_action' academy.id %}">{% csrf_token %}<button name="action" value="extend_90" class="sys-btn secondary" type="submit">+90 días</button></form>
+  <form method="post" action="{% url 'tenancy:license_action' academy.id %}">{% csrf_token %}<button name="action" value="extend_365" class="sys-btn secondary" type="submit">+365 días</button></form>
+</div>
+
+<section class="sys-panel sys-owner-panel"><div class="sys-panel-head"><div><span class="sys-kicker">DUEÑO DE LA ACADEMIA</span><h2>Cuenta principal</h2></div></div><div class="sys-list">{% for row in owners %}<div class="sys-list-row"><div><strong>{{ row.user.display_name }}</strong><span>{{ row.user.email }} · Gestiona branding, SMTP, cursos, usuarios y finanzas internas.</span></div><span class="sys-status {% if row.membership.status == 'ACTIVE' %}ok{% else %}danger{% endif %}">{{ row.membership.get_status_display }}</span></div>{% empty %}<div class="sys-empty"><p>Esta academia no tiene dueño asignado.</p><a class="sys-btn primary compact" href="{% url 'tenancy:academy_superadmin_create' academy.id %}">Crear dueño</a></div>{% endfor %}</div></section>
+
+<div class="sys-grid-2">
+  <section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">DATOS CONTRACTUALES</span><h2>Información del cliente</h2></div></div><p class="sys-panel-note">El logo, color, frase pública, descripción y SMTP los configura el dueño desde su propia academia.</p><form method="post" action="{% url 'tenancy:academy_update' academy.id %}" class="sys-form">{% csrf_token %}{% for field in academy_form %}<label><span>{{ field.label }}</span>{{ field }}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}<button class="sys-btn primary" type="submit">Guardar datos</button></form></section>
+  <section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">LICENCIA Y COBRO</span><h2>Condiciones comerciales</h2></div></div><form method="post" action="{% url 'tenancy:license_update' academy.id %}" class="sys-form">{% csrf_token %}{% for field in license_form %}<label><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}<button class="sys-btn primary" type="submit">Guardar licencia</button></form></section>
+</div>
+
+<div class="sys-grid-2"><section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">USO</span><h2>Usuarios recientes</h2></div></div><div class="sys-list">{% for row in users %}<div class="sys-list-row"><div><strong>{{ row.user.display_name }}</strong><span>{{ row.user.email }} · {{ row.membership.get_role_display }} · {{ row.membership.get_status_display }}</span></div></div>{% empty %}<div class="sys-empty">Sin usuarios.</div>{% endfor %}</div></section><section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">CONTENIDO</span><h2>Cursos recientes</h2></div></div><div class="sys-list">{% for course in courses %}<div class="sys-list-row"><div><strong>{{ course.title }}</strong><span>{{ course.get_status_display }}</span></div></div>{% empty %}<div class="sys-empty">Sin cursos.</div>{% endfor %}</div></section></div>
+{% endblock %}

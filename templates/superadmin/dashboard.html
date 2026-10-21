@@ -1,27 +1,31 @@
 {% extends 'base.html' %}{% load static %}
-{% block title %}Superadministración · Devlayer Academy{% endblock %}
+{% block title %}Administración · {{ request.academy.name }}{% endblock %}
 {% block content %}
-<div class="sa-page-head"><div><span class="eyebrow">SUPERADMINISTRACIÓN</span><h1>Control de la academia</h1><p>Usuarios, cursos, matrículas, pagos y certificados en una sola vista.</p></div></div>
-<div class="sa-stat-grid">
-  <a class="sa-stat" href="{% url 'superadmin:users' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.students }}</strong><span>Estudiantes</span></div></a>
-  <a class="sa-stat" href="{% url 'superadmin:users' %}?rol=PROFESSOR"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#profesor"></use></svg></span><div><strong>{{ stats.professors }}</strong><span>Profesores</span></div></a>
+<div class="sa-page-head">
+  <div><span class="eyebrow">PANEL DEL DUEÑO</span><h1>{{ request.academy.name }}</h1><p>Controla personas, cursos, accesos, pagos y progreso académico sin mezclar información con ninguna otra academia.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:owner_profile' %}">Perfil de academia</a><a class="btn btn-secondary btn-small" href="{% url 'superadmin:banks' %}">Métodos de pago</a><a class="btn btn-small" href="{% url 'tenancy:academy_public' request.academy.slug %}" target="_blank" rel="noopener">Ver catálogo</a></div>
+</div>
+
+{% if license_obj %}<section class="sa-license-strip"><div><span class="eyebrow">LICENCIA</span><strong>{{ license_obj.plan_name }}</strong><small>{% if license_obj.ends_at %}Vence {{ license_obj.ends_at|date:'d/m/Y' }} · {{ license_obj.days_remaining }} días restantes{% else %}Sin vencimiento{% endif %}</small></div><div class="sa-license-usage"><span>Estudiantes <b>{{ license_usage.students.used }}/{% if license_usage.students.unlimited %}∞{% else %}{{ license_usage.students.limit }}{% endif %}</b></span><span>Profesores <b>{{ license_usage.professors.used }}/{% if license_usage.professors.unlimited %}∞{% else %}{{ license_usage.professors.limit }}{% endif %}</b></span><span>Admins <b>{{ license_usage.admins.used }}/{% if license_usage.admins.unlimited %}∞{% else %}{{ license_usage.admins.limit }}{% endif %}</b></span></div></section>{% endif %}
+
+<div class="sa-stat-grid owner-dashboard-stats">
+  <a class="sa-stat" href="{% url 'superadmin:courses' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.unverified_students }}</strong><span>Correos sin verificar</span></div></a>
+  <a class="sa-stat" href="{% url 'superadmin:courses' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.students }}</strong><span>Estudiantes activos</span></div></a>
+  <a class="sa-stat" href="{% url 'superadmin:courses' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#profesor"></use></svg></span><div><strong>{{ stats.professors }}</strong><span>Profesores</span></div></a>
   <a class="sa-stat" href="{% url 'superadmin:courses' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ stats.courses }}</strong><span>Cursos</span></div></a>
+  <a class="sa-stat" href="{% url 'superadmin:courses' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><strong>{{ stats.in_progress_enrollments }}</strong><span>Estudiantes en proceso</span></div></a>
+  <a class="sa-stat" href="{% url 'superadmin:courses' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><div><strong>{{ stats.completed_enrollments }}</strong><span>Cursos completados</span></div></a>
   <a class="sa-stat" href="{% url 'superadmin:payments' %}?estado=PENDING"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>{{ stats.pending_payments }}</strong><span>Pagos pendientes</span></div></a>
-  <a class="sa-stat" href="{% url 'superadmin:enrollments' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><strong>{{ stats.active_enrollments }}</strong><span>Accesos activos</span></div></a>
-  <a class="sa-stat" href="{% url 'superadmin:certificates' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><div><strong>{{ stats.certificates }}</strong><span>Certificados</span></div></a>
+  <a class="sa-stat" href="{% url 'superadmin:certificates' %}"><span class="sa-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><div><strong>{{ stats.certificates }}</strong><span>Certificados emitidos</span></div></a>
 </div>
+
 <div class="sa-grid-2">
-  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">CURSOS</span><h2>Revisión y publicación</h2></div><a href="{% url 'superadmin:courses' %}">Ver todos</a></div>
-    <div class="sa-list">{% for course in recent_courses %}<div class="sa-list-row"><div><strong>{{ course.title }}</strong><span>{{ course.category.name }} · {{ course.get_status_display }}</span></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:courses' %}?q={{ course.title|urlencode }}">Gestionar</a></div>{% empty %}<div class="empty">No hay cursos todavía.</div>{% endfor %}</div>
-  </section>
-  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">FINANZAS</span><h2>Pagos recientes</h2></div><a href="{% url 'superadmin:payments' %}">Ver pagos</a></div>
-    <div class="sa-list">{% for payment in recent_payments %}<div class="sa-list-row"><div><strong>{{ payment.order.code }}</strong><span>{{ payment.order.user.email }} · {{ payment.get_status_display }}</span></div><strong>${{ payment.amount }}</strong></div>{% empty %}<div class="empty">No hay pagos registrados.</div>{% endfor %}</div>
-  </section>
+  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">CURSOS</span><h2>Gestión y seguimiento</h2></div><a href="{% url 'superadmin:courses' %}">Ver todos</a></div><div class="sa-list">{% for course in recent_courses %}<div class="sa-list-row"><div><strong>{{ course.title }}</strong><span>{{ course.category.name }} · {{ course.get_status_display }} · {{ course.enrollments.count }} inscritos</span></div><a class="sa-action primary" href="{% url 'superadmin:course_detail' course.id %}">Resumen</a></div>{% empty %}<div class="empty">No hay cursos todavía.</div>{% endfor %}</div></section>
+  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">PERSONAS</span><h2>Actividad reciente</h2><p>Los accesos y pagos se administran desde cada curso.</p></div><a href="{% url 'superadmin:courses' %}">Ir a cursos</a></div><div class="sa-list">{% for row in recent_users %}<div class="sa-list-row"><div><strong>{{ row.user.display_name }}</strong><span>{{ row.user.email }} · {{ row.membership.get_role_display }}</span></div><span class="sa-status {% if row.membership.status == 'ACTIVE' %}ok{% elif row.membership.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ row.membership.get_status_display }}</span></div>{% empty %}<div class="empty">No hay usuarios todavía.</div>{% endfor %}</div></section>
 </div>
+
 <div class="sa-grid-2">
-  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">USUARIOS</span><h2>Altas recientes</h2></div><a href="{% url 'superadmin:user_create' %}">Crear usuario</a></div>
-    <div class="sa-list">{% for item in recent_users %}<div class="sa-list-row"><div><strong>{{ item.display_name }}</strong><span>{{ item.email }} · {{ item.get_role_display }}</span></div><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Activo{% else %}Bloqueado{% endif %}</span></div>{% endfor %}</div>
-  </section>
-  <section class="sa-panel sa-revenue"><span class="eyebrow">REGISTRO FINANCIERO</span><h2>Ingresos aprobados</h2><strong class="sa-money">${{ stats.revenue|floatformat:2 }}</strong><p>Registro interno de pagos aprobados. La facturación fiscal se integrará después.</p><a class="btn" href="{% url 'superadmin:payments' %}">Abrir finanzas</a></section>
+  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">FINANZAS</span><h2>Pagos recientes</h2></div><a href="{% url 'superadmin:payments' %}">Ver pagos</a></div><div class="sa-list">{% for payment in recent_payments %}<div class="sa-list-row"><div><strong>{{ payment.order.code }}</strong><span>{{ payment.order.user.email }} · {{ payment.get_status_display }}</span></div><strong>${{ payment.amount }}</strong></div>{% empty %}<div class="empty">No hay pagos registrados.</div>{% endfor %}</div></section>
+  <section class="sa-panel sa-revenue"><span class="eyebrow">REGISTRO FINANCIERO</span><h2>Ingresos aprobados</h2><strong class="sa-money">${{ stats.revenue|floatformat:2 }}</strong><p>Registro interno exclusivo de esta academia.</p><a class="btn btn-small" href="{% url 'superadmin:payments' %}">Abrir finanzas</a></section>
 </div>
 {% endblock %}

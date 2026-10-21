@@ -19,7 +19,7 @@ def attach_static_cover(course, relative_path):
 
 
 def add_question(quiz, order, text, qtype, options=None, correct=None, explanation=''):
-    question, created = Question.objects.get_or_create(
+    question, _ = Question.objects.update_or_create(
         quiz=quiz,
         order=order,
         defaults={
@@ -29,14 +29,12 @@ def add_question(quiz, order, text, qtype, options=None, correct=None, explanati
             'is_active': True,
         },
     )
-    if not created:
-        return question
-    if qtype == 'OPEN':
-        return question
+    question.choices.all().delete()
     correct = set(correct or [])
     for idx, option in enumerate(options or [], start=1):
         Choice.objects.create(question=question, text=option, order=idx, is_correct=idx in correct)
     return question
+
 
 
 class Command(BaseCommand):
@@ -58,7 +56,7 @@ class Command(BaseCommand):
             defaults={
                 'title': 'Desarrollo Web Profesional',
                 'short_description': 'HTML, CSS responsive y JavaScript en una ruta práctica con evaluaciones por módulo y examen final.',
-                'description': 'Curso demostrativo completo para probar módulos, clases, progreso secuencial, cuestionarios, preguntas abiertas y certificación.',
+                'description': 'Curso demostrativo completo para probar módulos, clases, progreso secuencial, cuestionarios, evaluaciones automáticas y certificación.',
                 'category': cat_web,
                 'price': 39,
                 'currency': 'USD',
@@ -135,28 +133,28 @@ class Command(BaseCommand):
                     'is_active': True,
                 },
             )
-            if not quiz.questions.exists():
-                if module_order == 1:
-                    add_question(quiz, 1, '¿Qué etiqueta HTML representa el contenido principal?', Question.Type.SINGLE, ['<main>', '<span>', '<aside>', '<meta>'], [1])
-                    add_question(quiz, 2, 'Selecciona elementos semánticos de HTML.', Question.Type.MULTIPLE, ['<article>', '<section>', '<nav>', '<font>'], [1, 2, 3])
-                    add_question(quiz, 3, 'El atributo for de un label puede relacionarse con el id de un input.', Question.Type.TRUE_FALSE, ['Verdadero', 'Falso'], [1])
-                    add_question(quiz, 4, 'Explica por qué el HTML semántico ayuda a accesibilidad y mantenimiento.', 'OPEN')
-                    add_question(quiz, 5, '¿Qué protocolo se usa normalmente para servir páginas web seguras?', Question.Type.SINGLE, ['FTP', 'HTTPS', 'SMTP', 'SSH'], [2])
-                    add_question(quiz, 6, '¿Qué elemento representa navegación principal?', Question.Type.SINGLE, ['<nav>', '<b>', '<script>', '<br>'], [1])
-                elif module_order == 2:
-                    add_question(quiz, 1, '¿Qué propiedad define columnas en CSS Grid?', Question.Type.SINGLE, ['grid-template-columns', 'flex-direction', 'column-mode', 'layout-columns'], [1])
-                    add_question(quiz, 2, 'Selecciona propiedades de Flexbox.', Question.Type.MULTIPLE, ['justify-content', 'align-items', 'flex-direction', 'grid-area'], [1, 2, 3])
-                    add_question(quiz, 3, 'Mobile first comienza diseñando para pantallas pequeñas.', Question.Type.TRUE_FALSE, ['Verdadero', 'Falso'], [1])
-                    add_question(quiz, 4, 'Describe una estrategia para evitar desbordes en tarjetas responsive.', 'OPEN')
-                    add_question(quiz, 5, '¿Qué unidad es relativa al tamaño de fuente raíz?', Question.Type.SINGLE, ['px', 'rem', 'vh', 'cm'], [2])
-                    add_question(quiz, 6, '¿Cuál propiedad controla el espacio interno?', Question.Type.SINGLE, ['margin', 'padding', 'gap-only', 'border'], [2])
-                else:
-                    add_question(quiz, 1, '¿Qué método selecciona el primer elemento por selector CSS?', Question.Type.SINGLE, ['querySelector', 'findElement', 'selectNode', 'getOne'], [1])
-                    add_question(quiz, 2, 'Selecciona eventos comunes del DOM.', Question.Type.MULTIPLE, ['click', 'submit', 'change', 'compile'], [1, 2, 3])
-                    add_question(quiz, 3, 'addEventListener permite escuchar eventos del navegador.', Question.Type.TRUE_FALSE, ['Verdadero', 'Falso'], [1])
-                    add_question(quiz, 4, 'Explica cómo separarías lógica JavaScript de presentación CSS.', 'OPEN')
-                    add_question(quiz, 5, '¿Qué objeto representa el documento HTML?', Question.Type.SINGLE, ['document', 'windowStyle', 'htmlNodeRoot', 'browserDOM'], [1])
-                    add_question(quiz, 6, '¿Qué palabra clave declara una constante?', Question.Type.SINGLE, ['var', 'const', 'def', 'fixed'], [2])
+            if module_order == 1:
+                add_question(quiz, 1, '¿Qué etiqueta HTML representa el contenido principal?', Question.Type.SINGLE, ['<main>', '<span>', '<aside>', '<meta>'], [1])
+                add_question(quiz, 2, 'Selecciona elementos semánticos de HTML.', Question.Type.MULTIPLE, ['<article>', '<section>', '<nav>', '<font>'], [1, 2, 3])
+                add_question(quiz, 3, 'El atributo for de un label puede relacionarse con el id de un input.', Question.Type.SINGLE, ['Verdadero', 'Falso'], [1])
+                add_question(quiz, 4, 'Selecciona beneficios del HTML semántico.', Question.Type.MULTIPLE, ['Mejora accesibilidad', 'Facilita mantenimiento', 'Da estructura al contenido', 'Elimina la necesidad de CSS'], [1, 2, 3])
+                add_question(quiz, 5, '¿Qué protocolo se usa normalmente para servir páginas web seguras?', Question.Type.SINGLE, ['FTP', 'HTTPS', 'SMTP', 'SSH'], [2])
+                add_question(quiz, 6, '¿Qué elemento representa navegación principal?', Question.Type.SINGLE, ['<nav>', '<b>', '<script>', '<br>'], [1])
+            elif module_order == 2:
+                add_question(quiz, 1, '¿Qué propiedad define columnas en CSS Grid?', Question.Type.SINGLE, ['grid-template-columns', 'flex-direction', 'column-mode', 'layout-columns'], [1])
+                add_question(quiz, 2, 'Selecciona propiedades de Flexbox.', Question.Type.MULTIPLE, ['justify-content', 'align-items', 'flex-direction', 'grid-area'], [1, 2, 3])
+                add_question(quiz, 3, 'Mobile first comienza diseñando para pantallas pequeñas.', Question.Type.SINGLE, ['Verdadero', 'Falso'], [1])
+                add_question(quiz, 4, 'Selecciona estrategias para evitar desbordes en tarjetas responsive.', Question.Type.MULTIPLE, ['Usar max-width', 'Permitir ajuste de texto', 'Probar anchos pequeños', 'Forzar anchos fijos enormes'], [1, 2, 3])
+                add_question(quiz, 5, '¿Qué unidad es relativa al tamaño de fuente raíz?', Question.Type.SINGLE, ['px', 'rem', 'vh', 'cm'], [2])
+                add_question(quiz, 6, '¿Cuál propiedad controla el espacio interno?', Question.Type.SINGLE, ['margin', 'padding', 'gap-only', 'border'], [2])
+            else:
+                add_question(quiz, 1, '¿Qué método selecciona el primer elemento por selector CSS?', Question.Type.SINGLE, ['querySelector', 'findElement', 'selectNode', 'getOne'], [1])
+                add_question(quiz, 2, 'Selecciona eventos comunes del DOM.', Question.Type.MULTIPLE, ['click', 'submit', 'change', 'compile'], [1, 2, 3])
+                add_question(quiz, 3, 'addEventListener permite escuchar eventos del navegador.', Question.Type.SINGLE, ['Verdadero', 'Falso'], [1])
+                add_question(quiz, 4, 'Selecciona buenas prácticas para separar JavaScript y CSS.', Question.Type.MULTIPLE, ['Usar clases para estados visuales', 'Mantener estilos en CSS', 'Usar eventos en JavaScript', 'Escribir todo el CSS dentro de cada evento'], [1, 2, 3])
+                add_question(quiz, 5, '¿Qué objeto representa el documento HTML?', Question.Type.SINGLE, ['document', 'windowStyle', 'htmlNodeRoot', 'browserDOM'], [1])
+                add_question(quiz, 6, '¿Qué palabra clave declara una constante?', Question.Type.SINGLE, ['var', 'const', 'def', 'fixed'], [2])
+
 
         final_quiz, _ = Quiz.objects.get_or_create(
             course=course,
@@ -173,23 +171,22 @@ class Command(BaseCommand):
                 'is_active': True,
             },
         )
-        if not final_quiz.questions.exists():
-            final_questions = [
-                ('¿Qué etiqueta contiene metadatos y enlaces CSS?', Question.Type.SINGLE, ['<head>', '<main>', '<footer>', '<section>'], [1]),
-                ('Selecciona técnicas responsive válidas.', Question.Type.MULTIPLE, ['media queries', 'max-width', 'grid/flex', 'tablas fijas de 1600px'], [1, 2, 3]),
-                ('CSS Grid trabaja con filas y columnas.', Question.Type.TRUE_FALSE, ['Verdadero', 'Falso'], [1]),
-                ('¿Qué evento se dispara al enviar un formulario?', Question.Type.SINGLE, ['submit', 'send', 'formend', 'postevent'], [1]),
-                ('Explica cuándo usarías Flexbox y cuándo Grid.', 'OPEN', [], []),
-                ('¿Qué propiedad evita que una imagen supere su contenedor?', Question.Type.SINGLE, ['max-width: 100%', 'width: 2000px', 'position: fixed', 'float: auto'], [1]),
-                ('Selecciona etiquetas semánticas.', Question.Type.MULTIPLE, ['header', 'footer', 'article', 'blink'], [1, 2, 3]),
-                ('JavaScript puede modificar clases CSS de un elemento.', Question.Type.TRUE_FALSE, ['Verdadero', 'Falso'], [1]),
-                ('¿Qué API permite seleccionar elementos por CSS?', Question.Type.SINGLE, ['querySelector', 'cssFindServer', 'nodeSQL', 'templateSelect'], [1]),
-                ('Describe tres criterios para revisar una interfaz antes de publicarla.', 'OPEN', [], []),
-                ('¿Qué atributo HTML ayuda a describir imágenes?', Question.Type.SINGLE, ['alt', 'href', 'rel', 'srcset-only'], [1]),
-                ('Selecciona buenas prácticas de accesibilidad.', Question.Type.MULTIPLE, ['labels asociados', 'contraste legible', 'navegación por teclado', 'texto minúsculo ilegible'], [1, 2, 3]),
-            ]
-            for idx, (text, qtype, options, correct) in enumerate(final_questions, start=1):
-                add_question(final_quiz, idx, text, qtype, options, correct)
+        final_questions = [
+            ('¿Qué etiqueta contiene metadatos y enlaces CSS?', Question.Type.SINGLE, ['<head>', '<main>', '<footer>', '<section>'], [1]),
+            ('Selecciona técnicas responsive válidas.', Question.Type.MULTIPLE, ['media queries', 'max-width', 'grid/flex', 'tablas fijas de 1600px'], [1, 2, 3]),
+            ('CSS Grid trabaja con filas y columnas.', Question.Type.SINGLE, ['Verdadero', 'Falso'], [1]),
+            ('¿Qué evento se dispara al enviar un formulario?', Question.Type.SINGLE, ['submit', 'send', 'formend', 'postevent'], [1]),
+            ('Selecciona afirmaciones correctas sobre Flexbox y Grid.', Question.Type.MULTIPLE, ['Flexbox funciona bien en un eje', 'Grid funciona bien en filas y columnas', 'Ambos pueden combinarse', 'Grid solo sirve para texto'], [1, 2, 3]),
+            ('¿Qué propiedad evita que una imagen supere su contenedor?', Question.Type.SINGLE, ['max-width: 100%', 'width: 2000px', 'position: fixed', 'float: auto'], [1]),
+            ('Selecciona etiquetas semánticas.', Question.Type.MULTIPLE, ['header', 'footer', 'article', 'blink'], [1, 2, 3]),
+            ('JavaScript puede modificar clases CSS de un elemento.', Question.Type.SINGLE, ['Verdadero', 'Falso'], [1]),
+            ('¿Qué API permite seleccionar elementos por CSS?', Question.Type.SINGLE, ['querySelector', 'cssFindServer', 'nodeSQL', 'templateSelect'], [1]),
+            ('Selecciona criterios importantes antes de publicar una interfaz.', Question.Type.MULTIPLE, ['Responsive', 'Accesibilidad', 'Funcionamiento de interacciones', 'Ignorar errores visibles'], [1, 2, 3]),
+            ('¿Qué atributo HTML ayuda a describir imágenes?', Question.Type.SINGLE, ['alt', 'href', 'rel', 'srcset-only'], [1]),
+            ('Selecciona buenas prácticas de accesibilidad.', Question.Type.MULTIPLE, ['labels asociados', 'contraste legible', 'navegación por teclado', 'texto minúsculo ilegible'], [1, 2, 3]),
+        ]
+        for idx, (text, qtype, options, correct) in enumerate(final_questions, start=1):
+            add_question(final_quiz, idx, text, qtype, options, correct)
 
         # Cursos visuales adicionales para probar tarjetas y portadas.
         extra_courses = [

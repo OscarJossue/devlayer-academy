@@ -64,11 +64,11 @@
   --shadow-lg: 0 28px 70px rgba(48, 43, 91, .16);
 
   /* Global buttons: change these once, update everywhere */
-  --button-height: 44px;
-  --button-height-sm: 36px;
+  --button-height: 40px;
+  --button-height-sm: 34px;
   --button-radius: 9px;
-  --button-padding-x: 17px;
-  --button-font-size: 13px;
+  --button-padding-x: 14px;
+  --button-font-size: 12px;
   --button-font-weight: 750;
   --button-letter-spacing: -.01em;
 
@@ -126,7 +126,10 @@ input[type="submit"].btn {
   letter-spacing: var(--button-letter-spacing);
   line-height: 1;
   cursor: pointer;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
   box-shadow: 0 8px 18px rgba(101, 68, 229, .2);
   transition: transform var(--transition), box-shadow var(--transition), background var(--transition), border-color var(--transition), color var(--transition);
 }
@@ -330,7 +333,7 @@ button.btn[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
 @media (max-width: 640px) {
   :root {
     --button-height: 46px;
-    --button-padding-x: 17px;
+    --button-padding-x: 14px;
   }
   .container { width: min(100% - 24px, var(--container)); }
 }
@@ -364,3 +367,22 @@ button.btn[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
 .form-field input[type="file"] { padding: 9px; background: var(--surface-soft); }
 .form-field input[type="checkbox"],
 .form-field input[type="radio"] { accent-color: var(--brand-600); }
+
+/* V7 · Iconografía y botones estrictamente normalizados */
+.btn svg,
+.sys-btn svg,
+.sa-action svg,
+.sidebar-link svg,
+.page-actions svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  overflow: visible;
+}
+.btn.btn-small svg { width: 14px; height: 14px; flex-basis: 14px; }
+.btn { width: auto; min-width: 0; }
+.page-actions .btn { flex: 0 0 auto; }
+@media (max-width: 640px) {
+  :root { --button-height: 40px; --button-height-sm: 34px; }
+  .page-actions .btn { flex: 0 1 auto; width: auto; }
+}

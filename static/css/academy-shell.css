@@ -214,3 +214,13 @@ table th, table td { padding: 12px 13px; }
 .sidebar-link.is-active { background: rgba(45,168,255,.13); color: #fff; box-shadow: inset 3px 0 0 #2da8ff; }
 .sidebar-link.is-active svg { color: #8bd0ff; }
 .hero h1 { font-size: clamp(34px, 5vw, 52px) !important; line-height: 1.08 !important; }
+
+/* Estado de verificación visible sin bloquear la cuenta */
+.verification-banner { align-items:center; justify-content:space-between; gap:18px; }
+.verification-banner > div { min-width:0; flex:1; }
+.verification-banner form { margin:0; flex:0 0 auto; }
+.verification-banner .btn { white-space:nowrap; }
+@media(max-width:720px){
+  .verification-banner { align-items:flex-start; flex-direction:column; }
+  .verification-banner form, .verification-banner .btn { width:100%; }
+}

@@ -1,4 +1,36 @@
-{% extends 'base.html' %}{% block title %}Cuentas bancarias · Superadmin{% endblock %}{% block content %}
-<div class="sa-page-head"><div><span class="eyebrow">COBROS</span><h1>Cuentas bancarias</h1><p>Configura los datos que verá el estudiante al elegir transferencia bancaria.</p></div><a class="btn" href="{% url 'superadmin:bank_create' %}">Añadir cuenta</a></div>
-<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Banco</th><th>Cuenta</th><th>Titular</th><th>Estado</th></tr></thead><tbody>{% for item in banks_list %}<tr><td><strong>{{ item.bank_name }}</strong><small>{{ item.account_type }}</small></td><td>{{ item.account_number }}</td><td>{{ item.holder_name }}</td><td><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Visible{% else %}Oculta{% endif %}</span></td></tr>{% empty %}<tr><td colspan="4">No hay cuentas configuradas.</td></tr>{% endfor %}</tbody></table></div>
+{% extends 'base.html' %}
+{% block title %}Métodos de pago · {{ academy.name }}{% endblock %}
+{% block content %}
+<div class="sa-page-head">
+  <div><span class="eyebrow">COBROS DE LA ACADEMIA</span><h1>Métodos de pago</h1><p>Configura cómo pagarán los estudiantes. Todo lo definido aquí pertenece únicamente a {{ academy.name }}.</p></div>
+  <a class="btn btn-small" href="{% url 'superadmin:bank_create' %}">Añadir cuenta bancaria</a>
+</div>
+
+<div class="sa-grid-2 payment-settings-grid">
+  <section class="sa-panel">
+    <div class="sa-panel-head"><div><span class="eyebrow">CONFIGURACIÓN</span><h2>Métodos habilitados</h2></div></div>
+    <form method="post" class="form-stack compact-form">{% csrf_token %}<input type="hidden" name="section" value="payment_settings">{% include 'partials/form_fields.html' with form=payment_settings_form %}<button class="btn" type="submit">Guardar métodos</button></form>
+  </section>
+  <section class="sa-panel payment-flow-card">
+    <span class="eyebrow">FLUJO DEL ESTUDIANTE</span><h2>Así aparecerá el cobro</h2>
+    <div class="payment-flow-steps">
+      <div><b>1</b><span>El estudiante elige un curso de pago.</span></div>
+      <div><b>2</b><span>Ve solo las cuentas y métodos activos de esta academia.</span></div>
+      <div><b>3</b><span>Sube el comprobante y queda pendiente.</span></div>
+      <div><b>4</b><span>El dueño aprueba y el acceso se activa automáticamente.</span></div>
+    </div>
+  </section>
+</div>
+
+<section class="sa-panel bank-list-panel">
+  <div class="sa-panel-head"><div><span class="eyebrow">TRANSFERENCIAS</span><h2>Cuentas bancarias</h2></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:bank_create' %}">Nueva cuenta</a></div>
+  <div class="sa-table-wrap embedded-table"><table class="sa-table"><thead><tr><th>Banco</th><th>Cuenta</th><th>Titular</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+  {% for item in banks_list %}<tr>
+    <td><strong>{{ item.bank_name }}</strong><small>{{ item.account_type|default:'Sin tipo' }}</small></td>
+    <td>{{ item.account_number }}</td><td>{{ item.holder_name }}</td>
+    <td><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Visible{% else %}Oculta{% endif %}</span></td>
+    <td><div class="sa-actions"><a class="sa-action" href="{% url 'superadmin:bank_edit' item.id %}">Editar</a><form method="post" action="{% url 'superadmin:bank_toggle' item.id %}">{% csrf_token %}<button class="sa-action {% if item.is_active %}danger{% endif %}" type="submit">{% if item.is_active %}Ocultar{% else %}Mostrar{% endif %}</button></form></div></td>
+  </tr>{% empty %}<tr><td colspan="5">No hay cuentas bancarias configuradas para esta academia.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
 {% endblock %}

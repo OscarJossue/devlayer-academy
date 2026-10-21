@@ -1,0 +1,27 @@
+{% extends 'tenancy/system_base.html' %}{% load static %}
+{% block title %}Planes · Control del sistema{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head">
+  <div><span class="sys-kicker">CONFIGURACIÓN COMERCIAL</span><h1>Planes de licencias</h1><p>Define una vez los límites, precio y duración. Al crear una academia solo tendrás que seleccionar el plan.</p></div>
+  <a class="sys-btn primary" href="{% url 'tenancy:plan_create' %}">Crear plan</a>
+</div>
+
+<div class="sys-plan-grid">
+  {% for plan in plans %}
+  <article class="sys-plan-card {% if not plan.is_active %}is-disabled{% endif %}">
+    <div class="sys-plan-head"><div><span class="sys-kicker">{{ plan.code|upper }}</span><h2>{{ plan.name }}</h2></div><span class="sys-status {% if plan.is_active %}ok{% else %}danger{% endif %}">{% if plan.is_active %}Activo{% else %}Inactivo{% endif %}</span></div>
+    <p>{{ plan.description|default:'Plan comercial de Devlayer Academy.' }}</p>
+    <div class="sys-plan-price"><strong>{{ plan.currency }} {{ plan.price|floatformat:2 }}</strong><span>{% if plan.duration_days %}{{ plan.duration_days }} días{% else %}Sin vencimiento automático{% endif %}</span></div>
+    <div class="sys-limit-list">
+      <div><span>Dueño</span><strong>1</strong></div>
+      <div><span>Administradores</span><strong>{% if plan.max_admins %}{{ plan.max_admins }}{% else %}∞{% endif %}</strong></div>
+      <div><span>Profesores</span><strong>{% if plan.max_professors %}{{ plan.max_professors }}{% else %}∞{% endif %}</strong></div>
+      <div><span>Estudiantes activos</span><strong>{% if plan.max_students %}{{ plan.max_students }}{% else %}∞{% endif %}</strong></div>
+    </div>
+    <div class="sys-plan-foot"><span>{{ plan.license_count }} licencia{{ plan.license_count|pluralize:'s' }}</span><a class="sys-btn secondary compact" href="{% url 'tenancy:plan_edit' plan.id %}">Editar plan</a></div>
+  </article>
+  {% empty %}
+  <div class="sys-empty-card"><strong>Aún no tienes planes.</strong><p>Crea tu primer plan para habilitar la creación de academias.</p><a class="sys-btn primary" href="{% url 'tenancy:plan_create' %}">Crear primer plan</a></div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}{{ profile_user.display_name }} · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="sa-page-head">
+  <div><span class="eyebrow">PERFIL EN ESTA ACADEMIA</span><h1>{{ profile_user.display_name }}</h1><p>{{ profile_user.email }} · {{ membership.get_role_display }} · {{ membership.get_status_display }}</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:users' %}">Volver a usuarios</a>{% if membership.role == 'STUDENT' %}<a class="btn btn-small" href="{% url 'superadmin:enrollment_create' %}">Dar acceso a curso</a>{% endif %}</div>
+</div>
+
+<div class="profile-summary-grid">
+  <section class="sa-panel"><span class="eyebrow">CUENTA</span><h2>Datos básicos</h2><div class="profile-facts"><div><span>Correo</span><strong>{{ profile_user.email }}</strong></div><div><span>Teléfono</span><strong>{{ profile_user.phone|default:'No registrado' }}</strong></div><div><span>Estado del correo</span><strong>{% if profile_user.email_verified %}Verificado{% else %}Sin verificar{% endif %}</strong></div><div><span>Creado</span><strong>{{ profile_user.created_at|date:'d/m/Y' }}</strong></div></div></section>
+  <section class="sa-panel"><span class="eyebrow">MEMBRESÍA</span><h2>Acceso a {{ request.academy.name }}</h2><div class="profile-facts"><div><span>Rol</span><strong>{{ membership.get_role_display }}</strong></div><div><span>Estado</span><strong>{{ membership.get_status_display }}</strong></div><div><span>Habilitado desde</span><strong>{% if membership.approved_at %}{{ membership.approved_at|date:'d/m/Y H:i' }}{% else %}{{ membership.created_at|date:'d/m/Y H:i' }}{% endif %}</strong></div><div><span>Registro</span><strong>{{ membership.created_at|date:'d/m/Y H:i' }}</strong></div></div></section>
+</div>
+
+{% if membership.role == 'STUDENT' %}
+<div class="sa-stat-grid compact-stats"><div class="sa-stat"><div><strong>{{ student_stats.courses }}</strong><span>Cursos con acceso</span></div></div><div class="sa-stat"><div><strong>{{ student_stats.in_progress }}</strong><span>En proceso</span></div></div><div class="sa-stat"><div><strong>{{ student_stats.completed }}</strong><span>Completados</span></div></div><div class="sa-stat"><div><strong>{{ student_stats.blocked }}</strong><span>Bloqueados</span></div></div></div>
+<section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">ACCESOS</span><h2>Cursos del estudiante</h2></div><a href="{% url 'superadmin:enrollment_create' %}">Habilitar curso</a></div>
+<div class="sa-table-wrap embedded-table"><table class="sa-table"><thead><tr><th>Curso</th><th>Progreso</th><th>Situación</th><th>Vigencia</th><th></th></tr></thead><tbody>{% for row in enrollment_rows %}<tr><td><strong>{{ row.enrollment.course.title }}</strong></td><td><strong>{{ row.progress }}%</strong><div class="mini-progress"><span style="width:{{ row.progress }}%"></span></div></td><td><span class="sa-status {% if row.stage == 'completed' %}ok{% elif row.stage == 'blocked' %}danger{% elif row.stage == 'progress' %}warn{% endif %}">{{ row.stage_label }}</span></td><td>{{ row.enrollment.expires_at|date:'d/m/Y'|default:'Sin vencimiento' }}</td><td><a class="sa-action" href="{% url 'superadmin:enrollment_edit' row.enrollment.id %}">Editar acceso</a></td></tr>{% empty %}<tr><td colspan="5">Todavía no tiene acceso a cursos.</td></tr>{% endfor %}</tbody></table></div></section>
+{% elif membership.role == 'PROFESSOR' or membership.role == 'ADMIN' %}
+<section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">DOCENCIA</span><h2>Cursos asignados</h2></div><a href="{% url 'superadmin:courses' %}">Gestionar cursos</a></div><div class="sa-list">{% for course in professor_courses %}<div class="sa-list-row"><div><strong>{{ course.title }}</strong><span>{{ course.category.name }} · {{ course.get_status_display }}</span></div><a class="sa-action" href="{% url 'superadmin:course_detail' course.id %}">Abrir</a></div>{% empty %}<div class="empty">Este profesor todavía no tiene cursos asignados.</div>{% endfor %}</div></section>
+{% endif %}
+{% endblock %}

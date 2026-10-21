@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Personalización · {{ academy.name }}{% endblock %}
+{% block content %}
+<section class="admin-page compact-page">
+  <div class="page-heading compact-heading">
+    <div>
+      <span class="eyebrow">IDENTIDAD DE LA ACADEMIA</span>
+      <h1>Personalización pública</h1>
+      <p>Configura el logo, color y presentación que verán tus estudiantes en el catálogo y el inicio de sesión.</p>
+    </div>
+    <a class="btn btn-secondary" href="{% url 'tenancy:academy_public' academy.slug %}" target="_blank" rel="noopener">Ver academia pública</a>
+  </div>
+
+  <div class="branding-admin-grid">
+    <section class="panel branding-preview-card" style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};">
+      <span class="eyebrow">VISTA PREVIA</span>
+      <div class="branding-logo-preview">
+        {% if academy.logo %}
+          <img src="{% url 'tenancy:academy_logo' academy.slug %}?v={{ academy.updated_at|date:'U' }}" alt="Logo de {{ academy.name }}">
+        {% else %}
+          <img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">
+        {% endif %}
+      </div>
+      <h2>{{ academy.name }}</h2>
+      <p class="branding-tagline-preview">{{ academy.tagline|default:'Tu academia, tus cursos y tu comunidad en un solo lugar.' }}</p>
+      <div class="branding-color-line"><span></span><small>{{ academy.brand_color|default:'#1458D6' }}</small></div>
+      <div class="branding-public-url"><strong>URL pública</strong><code>{{ public_url }}</code></div>
+    </section>
+
+    <section class="panel">
+      <form method="post" enctype="multipart/form-data" class="form-stack">
+        {% csrf_token %}
+        {% include 'partials/form_fields.html' with form=form %}
+        <div class="form-help-box">
+          <strong>Recomendación para el logo</strong>
+          <p>Usa PNG con fondo transparente o WEBP. Máximo 3 MB. Mientras no cargues un logo, se mostrará DevLayer Studio como identidad temporal.</p>
+        </div>
+        <button class="btn" type="submit">Guardar personalización</button>
+      </form>
+    </section>
+  </div>
+</section>
+{% endblock %}

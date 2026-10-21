@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 urlpatterns = [
+    path('', include('tenancy.urls')),
     path('admin/', include('core.superadmin_urls')),
     path('', include('core.urls')),
     path('cuenta/', include('accounts.urls')),

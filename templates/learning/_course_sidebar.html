@@ -1,0 +1,41 @@
+<aside class="course-sidebar">
+  <a class="sidebar-back" href="{% url 'learning:dashboard' %}">← Volver a mis cursos</a>
+  <h2>{{ course.title }}</h2>
+  <small>{{ course_progress_percentage }}% completado</small>
+  <div class="course-sidebar-progress"><div class="progress"><span style="width: {{ course_progress_percentage }}%"></span></div></div>
+
+  <div class="lesson-nav">
+    {% for module in course_nav_modules %}
+      <div class="nav-module">
+        <strong>Módulo {{ module.order }} · {{ module.title }}</strong>
+        {% for item in module.nav_lessons %}
+          {% if item.student_can_open %}
+            <a class="lesson-nav-item {% if item.id == active_lesson_id %}active{% endif %} {% if item.student_completed %}completed{% endif %}" href="{% url 'learning:lesson' course.slug item.id %}">
+              <span class="lesson-order">{% if item.student_completed %}✓{% else %}{{ item.order }}{% endif %}</span><span>{{ item.title }}</span>
+            </a>
+          {% else %}
+            <div class="lesson-nav-item locked" aria-label="Contenido bloqueado"><span class="lesson-order">🔒</span><span>{{ item.title }}</span></div>
+          {% endif %}
+        {% endfor %}
+        {% for quiz in module.nav_quizzes %}
+          <a class="quiz-link {% if quiz.id == active_quiz_id %}active{% endif %} {% if quiz.student_passed %}completed{% endif %}" href="{% url 'assessments:take' quiz.id %}">
+            <span class="lesson-order">{% if quiz.student_passed %}✓{% else %}Q{% endif %}</span><span>{{ quiz.title }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    {% for quiz in course_nav_final_quizzes %}
+      <a class="final-exam quiz-link {% if quiz.id == active_quiz_id %}active{% endif %} {% if quiz.student_passed %}completed{% endif %}" href="{% url 'assessments:take' quiz.id %}">
+        <span class="lesson-order">{% if quiz.student_passed %}✓{% else %}F{% endif %}</span><span>{{ quiz.title }}</span>
+      </a>
+    {% endfor %}
+
+    {% if course.masterclass_enabled %}
+      <a class="masterclass-link lesson-nav-item {% if active_masterclass %}active{% endif %}" href="{% url 'learning:masterclass' course.slug %}">
+        <span class="lesson-order">LIVE</span><span>{{ course.masterclass_title|default:'Clase magistral' }}</span>
+      </a>
+    {% endif %}
+  </div>
+  <p class="course-sidebar-note">Puedes volver a revisar la teoría ya desbloqueada aunque estés realizando un cuestionario.</p>
+</aside>

@@ -1,0 +1,18 @@
+{% extends 'tenancy/system_base.html' %}{% load static %}
+{% block title %}Academias · Control del sistema{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head"><div><span class="sys-kicker">LICENCIAS</span><h1>Academias clientes</h1><p>Cada academia tiene un dueño, un plan y límites independientes.</p></div><a class="sys-btn primary" href="{% url 'tenancy:academy_create' %}">Crear academia</a></div>
+<form class="sys-search" method="get"><input type="search" name="q" value="{{ q }}" placeholder="Buscar por academia, correo, razón social o slug"><button class="sys-btn secondary compact" type="submit">Buscar</button></form>
+<div class="sys-table-wrap"><table class="sys-table"><thead><tr><th>Academia</th><th>Dueño</th><th>Plan</th><th>Cupos activos</th><th>Vencimiento</th><th></th></tr></thead><tbody>
+{% for row in rows %}
+<tr>
+  <td><strong>{{ row.academy.name }}</strong><small>/academy/{{ row.academy.slug }}/</small></td>
+  <td>{% if row.owner %}<strong>{{ row.owner.display_name }}</strong><small>{{ row.owner.email }}</small>{% else %}<span class="sys-status warning">Sin dueño</span>{% endif %}</td>
+  <td><span class="sys-status {% if row.academy.access_enabled %}ok{% else %}danger{% endif %}">{{ row.academy.license.effective_status }}</span><small>{{ row.academy.license.plan_name }} · {{ row.academy.license.currency }} {{ row.academy.license.price|floatformat:2 }}</small></td>
+  <td><div class="sys-usage-mini"><span>E {{ row.usage.students.used }}/{% if row.usage.students.unlimited %}∞{% else %}{{ row.usage.students.limit }}{% endif %}</span><span>P {{ row.usage.professors.used }}/{% if row.usage.professors.unlimited %}∞{% else %}{{ row.usage.professors.limit }}{% endif %}</span><span>A {{ row.usage.admins.used }}/{% if row.usage.admins.unlimited %}∞{% else %}{{ row.usage.admins.limit }}{% endif %}</span></div></td>
+  <td>{% if row.academy.license.ends_at %}<strong>{{ row.academy.license.ends_at|date:'d/m/Y' }}</strong><small>{{ row.academy.license.days_remaining }} días restantes</small>{% else %}Sin vencimiento{% endif %}</td>
+  <td><a class="sys-btn secondary compact" href="{% url 'tenancy:academy_detail' row.academy.id %}">Gestionar</a></td>
+</tr>
+{% empty %}<tr><td colspan="6" class="sys-empty">No hay academias registradas.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

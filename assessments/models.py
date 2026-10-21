@@ -17,6 +17,7 @@ class Quiz(models.Model):
     question_count = models.PositiveIntegerField(default=10)
     pass_percentage = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(100)])
     max_attempts = models.PositiveIntegerField(default=3, help_text='0 = intentos ilimitados')
+    show_correct_answers = models.BooleanField(default=True, verbose_name='Mostrar respuestas correctas al finalizar')
     randomize_questions = models.BooleanField(default=True)
     randomize_choices = models.BooleanField(default=True)
     is_required = models.BooleanField(default=True)
@@ -37,7 +38,6 @@ class Question(models.Model):
     class Type(models.TextChoices):
         SINGLE = 'SINGLE', 'Opción única'
         MULTIPLE = 'MULTIPLE', 'Selección múltiple'
-        TRUE_FALSE = 'TRUE_FALSE', 'Verdadero / Falso'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')

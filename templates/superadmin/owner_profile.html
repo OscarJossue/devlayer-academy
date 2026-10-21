@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Perfil de la academia · {{ academy.name }}{% endblock %}
+{% block content %}
+<section class="admin-page compact-page">
+  <div class="page-heading compact-heading">
+    <div><span class="eyebrow">PERFIL DE LA ACADEMIA</span><h1>Identidad pública</h1><p>El logo, color y textos aparecen únicamente dentro de <strong>/academy/{{ academy.slug }}/</strong> y en sus correos.</p></div>
+    <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:smtp_settings' %}">Configurar SMTP</a><a class="btn btn-secondary btn-small" href="{% url 'superadmin:certificate_style' %}">Estilo de certificado</a><a class="btn btn-secondary btn-small" href="{{ public_url }}" target="_blank" rel="noopener">Ver catálogo público</a></div>
+  </div>
+
+  <div class="branding-admin-grid profile-branding-grid">
+    <section class="panel settings-panel">
+      <div class="settings-panel-head"><span class="eyebrow">IDENTIDAD</span><h2>Logo y datos públicos</h2><p>Antes de subir un logo propio se utiliza DevLayer Studio automáticamente.</p></div>
+      <div class="academy-logo-current" style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};">
+        <div class="academy-logo-current-frame">{% if academy.logo %}<img src="{% url 'tenancy:academy_logo' academy.slug %}?v={{ academy.updated_at|date:'U' }}" alt="Logo de {{ academy.name }}">{% else %}<img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">{% endif %}</div>
+        <div><strong>{% if academy.logo %}Logo actual{% else %}Logo temporal DevLayer{% endif %}</strong><span>{% if academy.logo %}Puedes reemplazarlo cargando otro archivo.{% else %}Este logo desaparecerá cuando cargues el de tu academia.{% endif %}</span></div>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=branding_form %}<button class="btn" type="submit">Guardar identidad</button></form>
+    </section>
+
+    <aside class="profile-settings-stack">
+      <section class="panel settings-panel compact-setting-card"><span class="eyebrow">CORREO</span><h2>SMTP</h2><p>{% if academy.smtp_configured %}<strong>Configurado</strong><br>{{ academy.smtp_host }}:{{ academy.smtp_port }}{% else %}Pendiente de configurar.{% endif %}</p><a class="btn btn-secondary btn-small" href="{% url 'superadmin:smtp_settings' %}">Abrir configuración</a></section>
+      <section class="panel settings-panel compact-setting-card"><span class="eyebrow">SEGURIDAD</span><h2>Verificación de correo</h2><p>Los estudiantes pueden entrar aunque el correo siga sin verificar. Desde el curso correspondiente puedes revisar al estudiante; la verificación del correo sigue siendo independiente del acceso académico.</p><small>El acceso al contenido de los cursos no depende de esta verificación: depende de la matrícula y del pago aprobado.</small></section>
+      <section class="panel settings-panel compact-setting-card"><span class="eyebrow">CERTIFICADOS</span><h2>Diseño predeterminado</h2><p>Los profesores pueden usar este diseño global o personalizarlo por curso.</p><a class="btn btn-secondary btn-small" href="{% url 'superadmin:certificate_style' %}">Configurar certificado</a></section>
+    </aside>
+  </div>
+</section>
+{% endblock %}

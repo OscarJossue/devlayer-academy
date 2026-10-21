@@ -1,0 +1,41 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% if academy %}Acceso a {{ academy.name }}{% else %}Acceso no disponible{% endif %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/system-owner.css' %}">
+</head>
+<body class="sys-login-page">
+<main class="sys-blocked-card">
+  <img src="{% static 'img/devlayer-studio.png' %}" alt="DevLayer Studio">
+  {% if academy %}
+    <span class="sys-kicker">ACCESO TEMPORALMENTE BLOQUEADO</span>
+    <h1>{{ academy.name }}</h1>
+    <p>{{ block_reason }}</p>
+    {% if license_obj %}
+      <p>
+        Estado: <strong>{{ license_obj.effective_status }}</strong>
+        {% if license_obj.starts_at %} · Inicio {{ license_obj.starts_at|date:'d/m/Y' }}{% endif %}
+        {% if license_obj.ends_at %} · Vence {{ license_obj.ends_at|date:'d/m/Y' }}{% endif %}
+      </p>
+    {% endif %}
+    <p>Tu información no se ha eliminado. Contacta al administrador de la academia o al proveedor de la licencia si el estado no corresponde.</p>
+  {% else %}
+    <span class="sys-kicker">CONTEXTO DE ACADEMIA NO DISPONIBLE</span>
+    <h1>Vuelve a ingresar desde tu academia</h1>
+    <p>{{ block_reason }}</p>
+    <p>Este mensaje no significa que una licencia esté suspendida. Abre nuevamente la URL <strong>/academy/slug/</strong> correspondiente.</p>
+  {% endif %}
+
+  {% if user.is_authenticated %}
+    <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="sys-btn secondary" type="submit">Cerrar sesión</button></form>
+  {% elif academy %}
+    <a class="sys-btn secondary" href="{% url 'tenancy:academy_login' academy.slug %}">Volver al acceso</a>
+  {% else %}
+    <a class="sys-btn secondary" href="/">Volver al inicio</a>
+  {% endif %}
+</main>
+</body>
+</html>

@@ -2,49 +2,166 @@
 {% block title %}{{ lesson.title }} · {{ course.title }}{% endblock %}
 {% block content %}
 <section class="player-layout">
-  <aside class="course-sidebar">
-    <a class="sidebar-back" href="{% url 'learning:dashboard' %}">← Volver a mis cursos</a>
-    <h2>{{ course.title }}</h2>
-    <small>{{ percentage }}% completado</small>
-    <div class="course-sidebar-progress"><div class="progress"><span style="width: {{ percentage }}%"></span></div></div>
-
-    <div class="lesson-nav">
-      {% regroup lessons by module as module_list %}
-      {% for group in module_list %}
-        <div class="nav-module">
-          <strong>Módulo {{ group.grouper.order }} · {{ group.grouper.title }}</strong>
-          {% for item in group.list %}
-            <a class="{% if item.id == lesson.id %}active{% endif %}" href="{% url 'learning:lesson' course.slug item.id %}"><span class="lesson-order">{{ item.order }}</span><span>{{ item.title }}</span></a>
-          {% endfor %}
-          {% for quiz in group.grouper.quizzes.all %}
-            <a class="quiz-link" href="{% url 'assessments:take' quiz.id %}"><span class="lesson-order">Q</span><span>{{ quiz.title }}</span></a>
-          {% endfor %}
-        </div>
-      {% endfor %}
-      {% for quiz in course.quizzes.all %}{% if quiz.kind == 'FINAL' %}<a class="final-exam quiz-link" href="{% url 'assessments:take' quiz.id %}"><span class="lesson-order">F</span><span>{{ quiz.title }}</span></a>{% endif %}{% endfor %}
-    </div>
-  </aside>
+  {% include 'learning/_course_sidebar.html' %}
 
   <div class="lesson-main">
     <div class="lesson-header">
-      <div><span class="eyebrow">{{ lesson.module.title }}</span><h1>{{ lesson.title }}</h1></div>
-      <div class="lesson-header-meta">Clase {{ lesson.order }} · {{ lesson.duration_minutes }} min</div>
+      <div><span class="eyebrow">MÓDULO {{ lesson.module.order }} · {{ lesson.module.title }}</span><h1>{{ lesson.title }}</h1></div>
+      <div class="lesson-header-meta">{{ lesson.duration_minutes }} min · {% if progress.completed %}Completada{% else %}En progreso{% endif %}</div>
     </div>
 
     {% if lesson.embed_url %}
-      <div class="video-wrap"><iframe src="{{ lesson.embed_url }}" title="{{ lesson.title }}" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="watermark">DEVLAYER · {{ user.email }}</div></div>
+      <div class="video-wrap"><iframe src="{{ lesson.embed_url }}" title="{{ lesson.title }}" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="watermark">{{ request.academy.name|upper }} · {{ user.email }}</div></div>
     {% else %}
       <div class="video-placeholder">Esta clase no tiene video configurado.</div>
     {% endif %}
 
-    <div class="panel lesson-content">
-      <h2>Contenido de la clase</h2>
-      <div class="prose">{{ lesson.description|default:'El profesor todavía no ha agregado una descripción para esta clase.'|linebreaks }}</div>
-      <div class="lesson-actions">
-        <div class="actions">{% if material_url %}<a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ material_url }}">Ver material PDF</a>{% endif %}</div>
-        <div>{% if not progress.completed %}<form method="post" action="{% url 'learning:complete_lesson' course.slug lesson.id %}">{% csrf_token %}<button class="btn">Marcar como completada</button></form>{% else %}<span class="completed-mark">✓ Clase completada</span>{% endif %}</div>
+    {% if material_page_count %}
+    <section class="pdf-slide-shell" data-pdf-slide-viewer tabindex="0" aria-label="Material PDF en diapositivas">
+      <div class="pdf-slide-head">
+        <div>
+          <span class="eyebrow">MATERIAL DE APOYO</span>
+          <h2>PDF en diapositivas</h2>
+          <p>Se conserva el PDF completo: diseño, imágenes y texto. Academy muestra una página a la vez y no ofrece descarga directa.</p>
+        </div>
+        <div class="pdf-slide-meta">
+          <strong data-pdf-counter>1 / {{ material_page_count }}</strong>
+          {% if material_pdf_size %}<small>PDF optimizado · {{ material_pdf_size|filesizeformat }}</small>{% endif %}
+        </div>
       </div>
+
+      <div class="pdf-slide-stage" data-pdf-stage>
+        <button type="button" class="pdf-edge-control pdf-edge-prev" data-pdf-prev aria-label="Página anterior">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg>
+        </button>
+        <div class="pdf-page-frame">
+          <div class="pdf-page-loader" data-pdf-loader><span></span><small>Cargando página…</small></div>
+          <img src="{{ material_page_urls.0 }}" data-pdf-page alt="Página 1 del material {{ lesson.title }}" draggable="false">
+          <div class="pdf-page-watermark">{{ request.academy.name|upper }} · {{ user.email }}</div>
+        </div>
+        <button type="button" class="pdf-edge-control pdf-edge-next" data-pdf-next aria-label="Página siguiente">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <div class="pdf-slide-footer">
+        <button type="button" class="flow-button flow-button-secondary" data-pdf-prev-footer><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg><span>Anterior</span></button>
+        <div class="pdf-page-dots" data-pdf-dots aria-label="Páginas del material"></div>
+        <button type="button" class="flow-button flow-button-primary" data-pdf-next-footer><span>Siguiente</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></button>
+      </div>
+      <p class="pdf-slide-tip">Puedes usar ← → en el teclado o deslizar lateralmente en móvil.</p>
+      {{ material_page_urls|json_script:"material-page-urls" }}
+    </section>
+    {% endif %}
+
+    <nav class="learning-flow-nav" aria-label="Navegación del curso">
+      <div class="learning-flow-side">{% if previous_lesson %}<a class="flow-button flow-button-secondary" href="{% url 'learning:lesson' course.slug previous_lesson.id %}" aria-label="Clase anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg><span>Anterior</span></a>{% endif %}</div>
+      <div class="learning-flow-center"><span class="learning-inline-status">{% if material_page_count %}{{ material_page_count }} página{{ material_page_count|pluralize:'s' }} de material PDF{% else %}Sin material adicional{% endif %}</span></div>
+      <div class="learning-flow-side learning-flow-side-end"><form method="post" action="{% url 'learning:complete_lesson' course.slug lesson.id %}">{% csrf_token %}<button class="flow-button flow-button-primary" type="submit"><span>{{ next_step.label }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></button></form></div>
+    </nav>
+    <p class="learning-flow-hint">Tu progreso se guarda automáticamente al continuar al siguiente paso.</p>
+
+    <div class="panel lesson-content">
+      <div class="lesson-content-head"><span class="eyebrow">RESUMEN DE LA CLASE</span><h2>Qué trabajarás aquí</h2></div>
+      <div class="prose">{{ lesson_summary|default:'El profesor todavía no ha agregado una descripción para esta clase.'|linebreaks }}</div>
     </div>
   </div>
 </section>
+{% if material_page_count %}
+<script>
+(function(){
+  const root=document.querySelector('[data-pdf-slide-viewer]');
+  const payload=document.getElementById('material-page-urls');
+  if(!root || !payload) return;
+  const urls=JSON.parse(payload.textContent || '[]');
+  if(!urls.length) return;
+
+  const image=root.querySelector('[data-pdf-page]');
+  const loader=root.querySelector('[data-pdf-loader]');
+  const counter=root.querySelector('[data-pdf-counter]');
+  const dots=root.querySelector('[data-pdf-dots]');
+  const controls=[...root.querySelectorAll('[data-pdf-prev],[data-pdf-prev-footer]')];
+  const nextControls=[...root.querySelectorAll('[data-pdf-next],[data-pdf-next-footer]')];
+  let current=0;
+  let touchStartX=null;
+
+  function preload(index){
+    if(index<0 || index>=urls.length) return;
+    const next=new Image();
+    next.src=urls[index];
+  }
+
+  function updateButtons(){
+    controls.forEach(btn=>btn.disabled=current===0);
+    nextControls.forEach(btn=>btn.disabled=current===urls.length-1);
+  }
+
+  function updateDots(){
+    [...dots.children].forEach((dot,index)=>dot.classList.toggle('is-active',index===current));
+  }
+
+  function show(index){
+    index=Math.max(0,Math.min(index,urls.length-1));
+    if(index===current && image.getAttribute('src')===urls[index]){
+      updateButtons(); updateDots(); return;
+    }
+    current=index;
+    loader.classList.add('is-visible');
+    image.classList.add('is-loading');
+    image.alt='Página '+(current+1)+' del material {{ lesson.title|escapejs }}';
+    image.src=urls[current];
+    counter.textContent=(current+1)+' / '+urls.length;
+    updateButtons();
+    updateDots();
+    preload(current+1);
+  }
+
+  image.addEventListener('load',()=>{
+    loader.classList.remove('is-visible');
+    image.classList.remove('is-loading');
+  });
+  image.addEventListener('error',()=>{
+    loader.classList.remove('is-visible');
+    image.classList.remove('is-loading');
+  });
+  image.addEventListener('contextmenu',event=>event.preventDefault());
+
+  controls.forEach(btn=>btn.addEventListener('click',()=>show(current-1)));
+  nextControls.forEach(btn=>btn.addEventListener('click',()=>show(current+1)));
+
+  const maxDots=Math.min(urls.length,24);
+  for(let i=0;i<maxDots;i++){
+    const dot=document.createElement('button');
+    dot.type='button';
+    dot.setAttribute('aria-label','Ir a página '+(i+1));
+    dot.addEventListener('click',()=>show(i));
+    dots.appendChild(dot);
+  }
+  if(urls.length>24){
+    const label=document.createElement('span');
+    label.className='pdf-dot-overflow';
+    label.textContent='+'+(urls.length-24);
+    dots.appendChild(label);
+  }
+
+  root.addEventListener('keydown',event=>{
+    if(event.key==='ArrowLeft'){event.preventDefault();show(current-1);}
+    if(event.key==='ArrowRight'){event.preventDefault();show(current+1);}
+  });
+  root.addEventListener('touchstart',event=>{touchStartX=event.changedTouches[0].clientX;},{passive:true});
+  root.addEventListener('touchend',event=>{
+    if(touchStartX===null) return;
+    const delta=event.changedTouches[0].clientX-touchStartX;
+    touchStartX=null;
+    if(Math.abs(delta)<45) return;
+    if(delta<0) show(current+1); else show(current-1);
+  },{passive:true});
+
+  counter.textContent='1 / '+urls.length;
+  updateButtons();
+  updateDots();
+  preload(1);
+})();
+</script>
+{% endif %}
 {% endblock %}

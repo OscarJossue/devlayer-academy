@@ -26,11 +26,8 @@ for attempt in range(1, 31):
         text = str(exc).lower()
         if 'password authentication failed' in text:
             print('\nERROR: PostgreSQL rechazó la contraseña configurada.')
-            print('Esto suele ocurrir cuando existe un volumen antiguo creado con otra contraseña.')
-            print('Esta versión usa un volumen estable nuevo: devlayer_academy_pgdata.')
-            print('Si ese volumen ya existía y NO necesitas conservar sus datos, ejecuta:')
+            print('Si cambiaste POSTGRES_PASSWORD con un volumen antiguo y no necesitas conservarlo:')
             print('  docker compose down -v')
-            print('y después:')
             print('  docker compose up --build')
             raise SystemExit(12)
         if attempt == 30:
@@ -41,16 +38,20 @@ else:
     raise last_error
 PY
 
-if [ "${AUTO_MAKEMIGRATIONS:-1}" = "1" ]; then
-  python manage.py makemigrations accounts catalog learning assessments billing certificates audit --noinput
-fi
-
+# Tenancy lleva migraciones versionadas. Las apps legadas conservan su 0001 inicial automático.
+python manage.py makemigrations accounts catalog learning assessments billing certificates audit --noinput
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 python manage.py create_initial_superadmin
 
-if [ "${SEED_DEMO:-0}" = "1" ]; then
+# En instalaciones nuevas no se crean cursos, academias ni usuarios de ejemplo.
+if [ "${ENABLE_DEMO_DATA:-0}" = "1" ]; then
   python manage.py seed_demo
+fi
+
+# La migración de la academia antigua es opt-in. Una base limpia permanece vacía.
+if [ "${MIGRATE_LEGACY_TENANCY:-0}" = "1" ]; then
+  python manage.py bootstrap_tenancy --force
 fi
 
 python manage.py check

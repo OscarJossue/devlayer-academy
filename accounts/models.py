@@ -8,7 +8,8 @@ class User(AbstractUser):
         STUDENT = 'STUDENT', 'Estudiante'
         PROFESSOR = 'PROFESSOR', 'Profesor'
         ADMIN = 'ADMIN', 'Administrador'
-        SUPERADMIN = 'SUPERADMIN', 'Superadministrador'
+        OWNER = 'OWNER', 'Dueño de academia'
+        SUPERADMIN = 'SUPERADMIN', 'Superadministrador del sistema'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = None

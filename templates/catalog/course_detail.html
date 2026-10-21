@@ -1,20 +1,29 @@
 {% extends 'base.html' %}
-{% block title %}{{ course.title }} · Devlayer Academy{% endblock %}
+{% block title %}{{ course.title }} · {% if academy %}{{ academy.name }}{% else %}Devlayer Academy{% endif %}{% endblock %}
 {% block content %}
-<section class="course-detail-hero">
+<section class="course-detail-hero"{% if academy %} style="--academy-brand: {{ academy.brand_color|default:'#1458D6' }};"{% endif %}>
   <div class="container course-detail-grid">
     <div class="course-detail-copy">
+      {% if academy %}<a class="auth-back-link" href="{% url 'tenancy:academy_public' academy.slug %}">← Volver a {{ academy.name }}</a>{% endif %}
       <span class="badge">{{ course.category.name }}</span>
       <h1>{{ course.title }}</h1>
       <p class="lead">{{ course.short_description|default:course.description|truncatechars:280 }}</p>
       <div class="course-detail-cover">
-        {% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="Portada de {{ course.title }}">{% else %}<div class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></div>{% endif %}
+        {% if course.thumbnail %}<img src="{% if academy %}{% url 'tenancy:academy_course_thumbnail' academy.slug course.id %}{% else %}{% url 'catalog:course_thumbnail' course.id %}{% endif %}" alt="Portada de {{ course.title }}">{% else %}<div class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></div>{% endif %}
       </div>
-      {% if course.description %}<div class="panel curriculum"><h2>Acerca de este curso</h2><div class="prose">{{ course.description|linebreaks }}</div></div>{% endif %}
+      {% if course.description %}<div class="panel curriculum"><span class="eyebrow">ANTES DE INSCRIBIRTE</span><h2>Acerca de este curso</h2><div class="prose">{{ course.description|linebreaks }}</div></div>{% endif %}
+      <div class="panel curriculum outcomes-panel">
+        <span class="eyebrow">QUÉ VAS A APRENDER</span>
+        <h2>Resultados de aprendizaje</h2>
+        <div class="course-outcomes-grid">
+          {% for module in course.modules.all %}<article class="course-outcome-card"><span>{{ module.order }}</span><div><strong>{{ module.title }}</strong><p>{{ module.description|default:'Desarrolla las habilidades principales de este módulo.' }}</p></div></article>{% empty %}<p class="muted">El contenido todavía está en preparación.</p>{% endfor %}
+        </div>
+      </div>
+      {% if course.masterclass_enabled %}<div class="panel curriculum masterclass-public-card"><span class="eyebrow">CIERRE EN VIVO</span><h2>{{ course.masterclass_title|default:'Clase magistral y resolución de dudas' }}</h2><p>{{ course.masterclass_description|default:'Repaso final, pautas prácticas y resolución de preguntas.' }}</p><div class="course-purchase-item"><span>Duración aproximada</span><strong>{{ course.masterclass_duration_minutes }} min</strong></div></div>{% endif %}
       <div class="panel curriculum">
-        <h2>Contenido del curso</h2>
+        <span class="eyebrow">PROGRAMA</span><h2>Contenido del curso</h2>
         {% for module in course.modules.all %}
-          <div class="module-summary"><strong>{{ module.order }}. {{ module.title }}</strong><span>{{ module.lessons.count }} clase{{ module.lessons.count|pluralize:"s" }}</span></div>
+          <div class="module-summary module-summary-rich"><div><strong>{{ module.order }}. {{ module.title }}</strong><small>{{ module.description|truncatechars:150 }}</small></div><span>{{ module.lessons.count }} clase{{ module.lessons.count|pluralize:"s" }}</span></div>
         {% empty %}<p class="muted">El contenido todavía está en preparación.</p>{% endfor %}
       </div>
     </div>
@@ -24,12 +33,21 @@
       <div class="course-price">{% if course.price %}${{ course.price }} <small>{{ course.currency }}</small>{% else %}Gratis{% endif %}</div>
       <div class="course-purchase-list">
         <div class="course-purchase-item"><span>Modalidad</span><strong>En línea</strong></div>
+        <div class="course-purchase-item"><span>Duración aprox.</span><strong>{{ course.estimated_duration_label }}</strong></div>
         <div class="course-purchase-item"><span>Acceso</span><strong>{{ course.get_access_type_display }}</strong></div>
         <div class="course-purchase-item"><span>Aprobación</span><strong>{{ course.default_pass_percentage }}%</strong></div>
         <div class="course-purchase-item"><span>Ruta</span><strong>{% if course.sequential_learning %}Secuencial{% else %}Libre{% endif %}</strong></div>
+        <div class="course-purchase-item"><span>Certificado</span><strong>{% if course.certificate_enabled %}Incluido al completar requisitos{% else %}No incluido{% endif %}</strong></div>
+        <div class="course-purchase-item"><span>Clase magistral</span><strong>{% if course.masterclass_enabled %}Incluida{% else %}No programada{% endif %}</strong></div>
       </div>
       {% if enrollment and enrollment.access_allowed %}
         <a class="btn btn-block" href="{% url 'learning:course_player' course.slug %}">Continuar curso</a>
+      {% elif latest_payment and latest_payment.status == 'PENDING' %}
+        <div class="course-access-state pending"><strong>Pago enviado</strong><span>Tu comprobante está pendiente de revisión para este curso.</span></div>
+        <a class="btn btn-secondary btn-block" href="{% url 'billing:order' latest_order.id %}">Ver estado del pago</a>
+      {% elif latest_payment and latest_payment.status == 'REJECTED' %}
+        <div class="course-access-state rejected"><strong>Pago por corregir</strong><span>Revisa el comprobante y vuelve a enviarlo.</span></div>
+        <a class="btn btn-block" href="{% url 'billing:order' latest_order.id %}">Corregir pago</a>
       {% else %}
         <a class="btn btn-block" href="{% url 'billing:checkout' course.slug %}">{% if course.price %}Solicitar acceso{% else %}Inscribirme gratis{% endif %}</a>
       {% endif %}

@@ -1,24 +1,25 @@
 <article class="course-card">
-  <a class="course-cover" href="{{ course.get_absolute_url }}" aria-label="Abrir {{ course.title }}">
+  <a class="course-cover" href="{% if academy %}{% url 'tenancy:academy_course_detail' academy.slug course.slug %}{% else %}{{ course.get_absolute_url }}{% endif %}" aria-label="Abrir {{ course.title }}">
     {% if course.thumbnail %}
-      <img src="{% url 'catalog:course_thumbnail' course.id %}" alt="Portada de {{ course.title }}" loading="lazy">
+      <img src="{% if academy %}{% url 'tenancy:academy_course_thumbnail' academy.slug course.id %}{% else %}{% url 'catalog:course_thumbnail' course.id %}{% endif %}" alt="Portada de {{ course.title }}" loading="lazy">
     {% else %}
       <span class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></span>
     {% endif %}
-    <span class="course-price-float">{% if course.price %}${{ course.price }} {{ course.currency }}{% else %}Gratis{% endif %}</span>
   </a>
   <div class="course-card-body">
-    <span class="badge">{{ course.category.name }}</span>
-    <h3><a href="{{ course.get_absolute_url }}">{{ course.title }}</a></h3>
+    <div class="course-card-badges"><span class="badge">{{ course.category.name }}</span>{% if course.certificate_enabled %}<span class="badge certificate-badge">Certificado</span>{% endif %}</div>
+    <h3><a href="{% if academy %}{% url 'tenancy:academy_course_detail' academy.slug course.slug %}{% else %}{{ course.get_absolute_url }}{% endif %}">{{ course.title }}</a></h3>
     <p>{{ course.short_description|default:course.description|truncatechars:132 }}</p>
+    <div class="course-card-meta">
+      <span><strong>{% if course.price %}${{ course.price }} {{ course.currency }}{% else %}Gratis{% endif %}</strong><small>Precio</small></span>
+      <span><strong>{{ course.estimated_duration_label }}</strong><small>Duración</small></span>
+      <span><strong>{{ course.modules.count }}</strong><small>Módulos</small></span>
+    </div>
   </div>
   <div class="course-card-footer">
     {% with instructor=course.lead_instructor %}
-      <div class="instructor-mini">
-        <span class="avatar">{% if instructor %}{{ instructor.display_name|slice:':1' }}{% else %}D{% endif %}</span>
-        <div><strong>{% if instructor %}{{ instructor.display_name }}{% else %}Devlayer Academy{% endif %}</strong><span>Instructor</span></div>
-      </div>
+      <div class="instructor-mini"><span class="avatar">{% if instructor %}{{ instructor.display_name|slice:':1' }}{% else %}{{ academy.name|default:'D'|slice:':1' }}{% endif %}</span><div><strong>{% if instructor %}{{ instructor.display_name }}{% elif academy %}{{ academy.name }}{% else %}Devlayer Academy{% endif %}</strong><span>Instructor</span></div></div>
     {% endwith %}
-    <a class="card-open" href="{{ course.get_absolute_url }}" aria-label="Ver curso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    <a class="card-open" href="{% if academy %}{% url 'tenancy:academy_course_detail' academy.slug course.slug %}{% else %}{{ course.get_absolute_url }}{% endif %}" aria-label="Ver curso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
   </div>
 </article>

@@ -1,3 +1,37 @@
-{% extends 'base.html' %}{% block title %}Resultado · {{ attempt.quiz.title }}{% endblock %}{% block content %}
-<section class="auth-page"><div class="container narrow"><div class="panel certificate-panel center"><span class="eyebrow">RESULTADO</span>{% if needs_review %}<div class="result-score">Pendiente</div><div class="result-pass">Revisión del profesor</div><p class="muted">Tu evaluación contiene preguntas abiertas. La nota final aparecerá cuando el profesor termine la revisión.</p>{% else %}<div class="result-score">{{ attempt.score }}%</div>{% if attempt.passed %}<div class="result-pass">✓ Evaluación aprobada</div>{% else %}<div class="result-fail">Evaluación no aprobada</div>{% endif %}<p class="muted">La nota mínima requerida es {{ attempt.quiz.required_score }}%.</p>{% endif %}<a class="btn" href="{% url 'learning:course_player' attempt.quiz.course.slug %}">Volver al curso</a></div></div></section>
+{% extends 'base.html' %}
+{% block title %}Resultado · {{ attempt.quiz.title }}{% endblock %}
+{% block content %}
+<section class="player-layout quiz-player-layout">
+  {% include 'learning/_course_sidebar.html' %}
+  <div class="lesson-main quiz-main">
+    <div class="lesson-header"><div><span class="eyebrow">RESULTADO AUTOMÁTICO</span><h1>{{ attempt.quiz.title }}</h1></div><div class="lesson-header-meta">Intento #{{ attempt.number }}</div></div>
+    <section class="panel certificate-panel center result-summary-card">
+      <div class="result-score">{{ attempt.score|default:0 }}%</div>
+      {% if attempt.passed %}
+        <div class="result-pass">✓ Evaluación aprobada</div>
+        <p class="muted">Superaste la nota mínima de {{ attempt.quiz.required_score }}%. Ya puedes avanzar al siguiente paso del curso.</p>
+        <a class="btn" href="{% url 'learning:course_player' attempt.quiz.course.slug %}">Continuar al siguiente paso →</a>
+      {% else %}
+        <div class="result-fail">Evaluación no aprobada</div>
+        <p class="muted">La nota mínima requerida es {{ attempt.quiz.required_score }}%. Puedes volver a la teoría desde el menú y luego intentarlo nuevamente.</p>
+        <div class="actions" style="justify-content:center"><a class="btn btn-secondary" href="{% url 'learning:course_player' attempt.quiz.course.slug %}">Volver al curso</a><a class="btn" href="{% url 'assessments:take' attempt.quiz.id %}">Intentar nuevamente</a></div>
+      {% endif %}
+    </section>
+
+    {% if attempt.quiz.show_correct_answers %}
+      <section class="panel answer-review-panel">
+        <div class="lesson-content-head"><span class="eyebrow">REVISIÓN</span><h2>Respuestas del intento</h2></div>
+        {% for row in answer_rows %}
+          <article class="answer-review-item {% if row.answer.is_correct %}is-correct{% else %}is-wrong{% endif %}">
+            <div class="answer-review-head"><strong>{{ forloop.counter }}. {{ row.question.text }}</strong><span>{% if row.answer.is_correct %}Correcta{% else %}Revisar{% endif %}</span></div>
+            <div class="answer-columns"><div><small>Tu respuesta</small>{% for choice in row.selected %}<p>{{ choice.text }}</p>{% empty %}<p class="muted">Sin respuesta</p>{% endfor %}</div><div><small>Respuesta correcta</small>{% for choice in row.correct %}<p>{{ choice.text }}</p>{% endfor %}</div></div>
+            {% if row.question.explanation %}<p class="answer-explanation">{{ row.question.explanation }}</p>{% endif %}
+          </article>
+        {% empty %}<p class="muted">No hay respuestas registradas para este intento.</p>{% endfor %}
+      </section>
+    {% else %}
+      <div class="message info"><strong>Respuestas ocultas por el profesor.</strong> Puedes revisar nuevamente la teoría desde el menú lateral antes de tu siguiente intento.</div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

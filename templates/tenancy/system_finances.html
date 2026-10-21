@@ -1,0 +1,14 @@
+{% extends 'tenancy/system_base.html' %}
+{% block title %}Finanzas · Control del sistema{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head"><div><span class="sys-kicker">FINANZAS</span><h1>Licencias y cobros</h1><p>Controla cuánto vendiste, cuánto cobraste, el saldo pendiente y el costo diario de cada licencia.</p></div></div>
+<div class="sys-money-grid">
+  <div class="sys-money-card"><small>Total contratado</small><strong>${{ finance.contracted|floatformat:2 }}</strong><span>Valor total de licencias</span></div>
+  <div class="sys-money-card positive"><small>Total cobrado</small><strong>${{ finance.collected|floatformat:2 }}</strong><span>Ingresos registrados</span></div>
+  <div class="sys-money-card warning"><small>Por cobrar</small><strong>${{ finance.receivable|floatformat:2 }}</strong><span>Saldo de clientes</span></div>
+  <div class="sys-money-card"><small>Valor diario activo</small><strong>${{ finance.daily|floatformat:2 }}</strong><span>Equivalente diario</span></div>
+</div>
+<div class="sys-table-wrap"><table class="sys-table"><thead><tr><th>Academia / dueño</th><th>Licencia</th><th>Valor</th><th>Cobrado</th><th>Saldo</th><th>Costo diario</th><th>Vence</th><th></th></tr></thead><tbody>
+{% for row in rows %}<tr><td><strong>{{ row.academy.name }}</strong><small>{% if row.owner %}{{ row.owner.email }}{% else %}Sin dueño asignado{% endif %}</small></td><td><span class="sys-status {% if row.academy.access_enabled %}ok{% else %}danger{% endif %}">{{ row.license.effective_status }}</span><small>{{ row.license.plan_name }} · {{ row.license.get_financial_status_display }}</small></td><td>{{ row.license.currency }} {{ row.license.price|floatformat:2 }}</td><td>{{ row.license.currency }} {{ row.license.amount_paid|floatformat:2 }}</td><td><strong>{{ row.license.currency }} {{ row.license.balance_due|floatformat:2 }}</strong></td><td>{{ row.license.currency }} {{ row.license.daily_cost|floatformat:2 }}</td><td>{% if row.license.ends_at %}<strong>{{ row.license.ends_at|date:'d/m/Y' }}</strong><small>{{ row.license.days_remaining }} días</small>{% else %}Sin vencimiento{% endif %}</td><td><a class="sys-btn secondary compact" href="{% url 'tenancy:academy_detail' row.academy.id %}">Gestionar</a></td></tr>{% empty %}<tr><td colspan="8" class="sys-empty">No hay licencias registradas.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,40 +1,39 @@
-from django.conf import settings
-from django.core.mail import send_mail
 from django.core.management.base import BaseCommand, CommandError
+
+from tenancy.mail import send_academy_mail
+from tenancy.models import Academy
 
 
 class Command(BaseCommand):
-    help = 'Prueba el SMTP real de salida enviando un correo a una dirección indicada.'
+    help = 'Prueba el SMTP configurado por una academia. No utiliza un SMTP global.'
 
     def add_arguments(self, parser):
-        parser.add_argument('recipient', help='Correo que recibirá la prueba SMTP')
+        parser.add_argument('academy_slug', help='Slug de la academia, por ejemplo dev-layer')
+        parser.add_argument('recipient', nargs='?', help='Correo destino. Si se omite usa el correo remitente de la academia.')
 
     def handle(self, *args, **options):
-        recipient = options['recipient'].strip()
-        if not getattr(settings, 'SMTP_CONFIGURED', False):
-            raise CommandError(
-                'SMTP incompleto. Configura EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, '
-                'EMAIL_HOST_PASSWORD y DEFAULT_FROM_EMAIL en .env.'
-            )
-
-        mode = 'SSL' if settings.EMAIL_USE_SSL else ('STARTTLS' if settings.EMAIL_USE_TLS else 'sin cifrado SMTP')
+        academy = Academy.objects.filter(slug=options['academy_slug']).first()
+        if not academy:
+            raise CommandError('No existe una academia con ese slug.')
+        if not academy.smtp_configured:
+            raise CommandError('El SMTP de esta academia está incompleto o deshabilitado.')
+        recipient = (options.get('recipient') or academy.smtp_from_email or '').strip()
+        if not recipient:
+            raise CommandError('Indica un correo destino o configura el correo remitente de la academia.')
+        mode = 'SSL' if academy.smtp_use_ssl else ('STARTTLS' if academy.smtp_use_tls else 'sin cifrado')
         self.stdout.write(
-            f'Probando {settings.EMAIL_HOST}:{settings.EMAIL_PORT} · {mode} · remitente {settings.DEFAULT_FROM_EMAIL}'
+            f'Probando SMTP de {academy.name}: {academy.smtp_host}:{academy.smtp_port} · {mode} · remitente {academy.smtp_from_email}'
         )
         try:
-            sent = send_mail(
-                subject='Prueba SMTP · Devlayer Academy',
-                message=(
-                    'Este correo confirma que Devlayer Academy puede enviar correo mediante '
-                    'el servidor SMTP configurado.\n\nNo se utiliza ninguna bandeja local.'
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient],
+            sent = send_academy_mail(
+                academy,
+                subject=f'Prueba SMTP · {academy.name}',
+                message='El SMTP independiente de esta academia funciona correctamente.',
+                recipients=[recipient],
                 fail_silently=False,
             )
         except Exception as exc:
-            raise CommandError(f'Falló el envío SMTP: {exc}') from exc
-
+            raise CommandError(f'Falló el SMTP de {academy.name}: {exc}') from exc
         if sent != 1:
-            raise CommandError(f'El backend SMTP respondió sin error, pero send_mail devolvió {sent}.')
-        self.stdout.write(self.style.SUCCESS(f'Correo SMTP enviado correctamente a {recipient}.'))
+            raise CommandError(f'El backend SMTP respondió sin error, pero devolvió {sent}.')
+        self.stdout.write(self.style.SUCCESS(f'Correo enviado correctamente a {recipient}.'))

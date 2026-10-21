@@ -8,5 +8,6 @@ urlpatterns = [
     path('resultado/<uuid:attempt_id>/', views.result, name='result'),
     path('profesor/curso/<uuid:course_id>/nueva/', views.quiz_create, name='professor_quiz_create'),
     path('profesor/<uuid:quiz_id>/importar/', views.import_questions_view, name='professor_import_questions'),
+    path('profesor/<uuid:quiz_id>/ajustes-rapidos/', views.quiz_quick_settings, name='professor_quiz_quick_settings'),
     path('profesor/intento/<uuid:attempt_id>/revisar/', views.review_attempt, name='professor_review_attempt'),
 ]

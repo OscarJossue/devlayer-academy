@@ -9,6 +9,7 @@ urlpatterns = [
     path('profesor/', views.professor_dashboard, name='professor_dashboard'),
     path('profesor/nuevo/', views.course_create, name='professor_course_create'),
     path('profesor/<uuid:pk>/editar/', views.course_edit, name='professor_course_edit'),
+    path('profesor/<uuid:pk>/certificado/vista-previa/', views.certificate_preview, name='professor_certificate_preview'),
     path('profesor/<uuid:pk>/importar-contenido/', views.import_content, name='professor_import_content'),
     path('profesor/<uuid:pk>/estudiantes/', views.professor_students, name='professor_students'),
     path('profesor/<uuid:pk>/revision/', views.submit_review, name='professor_submit_review'),

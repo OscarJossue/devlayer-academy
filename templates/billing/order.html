@@ -1,22 +1,44 @@
 {% extends 'base.html' %}
-{% block title %}Orden {{ order.code }} · Devlayer Academy{% endblock %}
+{% block title %}Orden {{ order.code }} · {{ academy.name }}{% endblock %}
 {% block content %}
-<section class="section"><div class="container detail-grid">
+<section class="section"><div class="container detail-grid payment-layout">
   <div class="payment-main">
-    <span class="eyebrow">ORDEN {{ order.code }}</span><h1>{{ order.course.title }}</h1>
+    <span class="eyebrow">ORDEN {{ order.code }}</span>
+    <h1>{{ order.course.title }}</h1>
     <div class="price-large">${{ order.amount }} {{ order.currency }}</div>
-    <p class="lead">Realiza la transferencia y registra el comprobante. Cuando sea aprobado, tu matrícula se activa automáticamente.</p>
+    <p class="lead">Realiza el pago usando uno de los métodos habilitados por {{ academy.name }} y registra tu comprobante para revisión.</p>
 
-    <div style="margin-top:30px"><h3 style="margin-bottom:12px">Cuentas disponibles</h3>
-      {% for bank in banks %}<div class="bank-card"><strong>{{ bank.bank_name }}</strong><span>{{ bank.account_type }} · {{ bank.account_number }}</span><span>{{ bank.holder_name }}</span>{% if bank.instructions %}<small>{{ bank.instructions }}</small>{% endif %}</div>{% empty %}<div class="message warning">Las cuentas bancarias todavía no están configuradas.</div>{% endfor %}
+    {% if academy.payment_instructions %}<div class="payment-instructions"><strong>Indicaciones de la academia</strong><p>{{ academy.payment_instructions }}</p></div>{% endif %}
+
+    {% if academy.payment_transfer_enabled %}
+    <div class="payment-method-section">
+      <div class="section-mini-head"><span class="eyebrow">TRANSFERENCIA</span><h3>Cuentas bancarias disponibles</h3></div>
+      <div class="bank-grid">
+        {% for bank in banks %}
+          <div class="bank-card">
+            <strong>{{ bank.bank_name }}</strong>
+            <span>{{ bank.account_type|default:'Cuenta' }} · {{ bank.account_number }}</span>
+            <span>{{ bank.holder_name }}</span>
+            {% if bank.holder_id %}<small>{{ bank.holder_id }}</small>{% endif %}
+            {% if bank.instructions %}<small>{{ bank.instructions }}</small>{% endif %}
+          </div>
+        {% empty %}
+          <div class="message warning">La academia habilitó transferencias, pero todavía no configuró una cuenta bancaria.</div>
+        {% endfor %}
+      </div>
     </div>
-    {% if whatsapp_url %}<div style="margin-top:16px"><a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ whatsapp_url }}">Reportar pago por WhatsApp</a></div>{% endif %}
+    {% endif %}
+
+    {% if whatsapp_url %}
+      <div class="payment-method-section"><a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ whatsapp_url }}">Reportar pago por WhatsApp</a></div>
+    {% endif %}
   </div>
 
   <aside class="panel payment-panel">
-    <span class="eyebrow">COMPROBANTE</span><h2 style="margin-top:10px">Subir comprobante</h2>
-    <form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block">Enviar comprobante</button></form>
-    {% if order.payments.all %}<div style="margin-top:22px;padding-top:20px;border-top:1px solid var(--line)"><h3 style="font-size:15px;margin-bottom:10px">Historial</h3>{% for p in order.payments.all %}<div class="meta-row" style="padding:8px 0"><span class="muted" style="font-size:11px">{{ p.get_method_display }}</span><span class="badge badge-neutral">{{ p.get_status_display }}</span></div>{% endfor %}</div>{% endif %}
+    <span class="eyebrow">COMPROBANTE</span><h2>Registrar pago</h2>
+    <p class="muted">El dueño o administrador de esta academia revisará el comprobante antes de habilitar el curso.</p>
+    <form method="post" enctype="multipart/form-data" class="form-stack payment-proof-form">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block">Enviar comprobante</button></form>
+    {% if order.payments.all %}<div class="payment-history"><h3>Historial</h3>{% for p in order.payments.all %}<div class="meta-row"><span class="muted">{{ p.get_method_display }}</span><span class="badge badge-neutral">{{ p.get_status_display }}</span></div>{% endfor %}</div>{% endif %}
   </aside>
 </div></section>
 {% endblock %}

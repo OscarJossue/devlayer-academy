@@ -1,3 +1,54 @@
-{% extends 'base.html' %}{% block title %}{{ quiz.title }} · Evaluación{% endblock %}{% block content %}
-<section class="section"><div class="container quiz-container"><div class="panel quiz-panel"><div class="quiz-intro"><span class="eyebrow">EVALUACIÓN</span><h1>{{ quiz.title }}</h1><p>Intento #{{ attempt.number }} · Nota mínima: <strong>{{ quiz.required_score }}%</strong></p></div><form method="post" enctype="multipart/form-data" class="quiz-form">{% csrf_token %}{% if require_identity %}<div class="message warning"><strong>Verificación de identidad</strong><p>Se guardará una fotografía como evidencia de este intento.</p><label>Fotografía <input required type="file" name="identity_photo" accept="image/*" capture="user"></label><label class="choice"><input required type="checkbox" name="identity_consent"><span>Autorizo el uso de esta imagen como evidencia de identidad.</span></label></div>{% endif %}{% for question, choices in question_data %}<fieldset class="question"><legend>{{ forloop.counter }}. {{ question.text }}</legend>{% if question.question_type == 'OPEN' %}<textarea name="q_{{ question.id }}" rows="5" maxlength="450" placeholder="Escribe tu respuesta con claridad (máximo 450 caracteres)" required></textarea>{% else %}{% for choice in choices %}<label class="choice"><input type="{% if question.question_type == 'MULTIPLE' %}checkbox{% else %}radio{% endif %}" name="q_{{ question.id }}" value="{{ choice.id }}"><span>{{ choice.text }}</span></label>{% endfor %}{% endif %}</fieldset>{% endfor %}<button class="btn" type="submit">Enviar evaluación</button></form></div></div></section>
+{% extends 'base.html' %}
+{% block title %}{{ quiz.title }} · Evaluación{% endblock %}
+{% block content %}
+<section class="player-layout quiz-player-layout">
+  {% include 'learning/_course_sidebar.html' %}
+  <div class="lesson-main quiz-main">
+    <div class="lesson-header">
+      <div><span class="eyebrow">EVALUACIÓN AUTOMÁTICA</span><h1>{{ quiz.title }}</h1></div>
+      <div class="lesson-header-meta">Intento #{{ attempt.number }} · mínimo {{ quiz.required_score }}%</div>
+    </div>
+    <div class="message info compact-message"><strong>La teoría sigue disponible.</strong> Puedes volver a cualquier clase desbloqueada desde el menú lateral y regresar al cuestionario cuando quieras.</div>
+    <div class="panel quiz-panel">
+      <div class="quiz-intro">
+        <p>Selecciona una o varias respuestas según indique cada pregunta. La nota se calcula automáticamente al enviar.</p>
+        <p class="muted">Intentos: {% if quiz.max_attempts == 0 %}<strong>Ilimitados</strong>{% else %}<strong>{{ quiz.max_attempts }}</strong>{% endif %} · Respuestas correctas al finalizar: <strong>{% if quiz.show_correct_answers %}Sí{% else %}No{% endif %}</strong></p>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="quiz-form">{% csrf_token %}
+        {% if require_identity %}
+          <div class="message warning"><strong>Verificación de identidad</strong><p>Se guardará una fotografía como evidencia de este intento.</p><label>Fotografía <input required type="file" name="identity_photo" accept="image/*" capture="user"></label><label class="choice"><input required type="checkbox" name="identity_consent"><span>Autorizo el uso de esta imagen como evidencia de identidad.</span></label></div>
+        {% endif %}
+        {% for question, choices in question_data %}
+          <fieldset class="question">
+            <legend>{{ forloop.counter }}. {{ question.text }}</legend>
+            <div class="question-type-hint">{% if question.question_type == 'MULTIPLE' %}Selecciona todas las respuestas correctas.{% else %}Selecciona una sola respuesta.{% endif %}</div>
+            {% for choice in choices %}
+              <label class="choice"><input {% if question.question_type != 'MULTIPLE' %}required{% endif %} type="{% if question.question_type == 'MULTIPLE' %}checkbox{% else %}radio{% endif %}" name="q_{{ question.id }}" value="{{ choice.id }}"><span>{{ choice.text }}</span></label>
+            {% endfor %}
+          </fieldset>
+        {% empty %}<div class="message warning">Esta evaluación todavía no tiene preguntas automáticas publicadas.</div>{% endfor %}
+        {% if question_data %}<button class="btn" type="submit">Finalizar y ver mi nota</button>{% endif %}
+      </form>
+    </div>
+  </div>
+</section>
+<script>
+(function(){
+  const form=document.querySelector('.quiz-form');
+  if(!form || !window.localStorage) return;
+  const key='academy-quiz-{{ attempt.id }}';
+  try {
+    const saved=JSON.parse(localStorage.getItem(key)||'{}');
+    Object.entries(saved).forEach(([name,values])=>{
+      (values||[]).forEach(value=>{const input=form.querySelector(`[name="${name}"][value="${value}"]`);if(input)input.checked=true;});
+    });
+  } catch(e) {}
+  form.addEventListener('change',()=>{
+    const data={};
+    form.querySelectorAll('input[name^="q_"]:checked').forEach(input=>{(data[input.name]||(data[input.name]=[])).push(input.value);});
+    try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}
+  });
+  form.addEventListener('submit',()=>{try{localStorage.removeItem(key);}catch(e){}});
+})();
+</script>
 {% endblock %}

@@ -1,4 +1,11 @@
-{% extends 'base.html' %}{% block title %}Categorías · Superadmin{% endblock %}{% block content %}
-<div class="sa-page-head"><div><span class="eyebrow">CATÁLOGO</span><h1>Categorías</h1><p>Crea categorías y subcategorías para organizar los cursos.</p></div><a class="btn" href="{% url 'superadmin:category_create' %}">Crear categoría</a></div>
-<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Nombre</th><th>Categoría superior</th><th>Orden</th><th>Estado</th></tr></thead><tbody>{% for item in categories_list %}<tr><td><strong>{{ item.name }}</strong><small>{{ item.description|truncatechars:80 }}</small></td><td>{{ item.parent|default:'Principal' }}</td><td>{{ item.order }}</td><td><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Activa{% else %}Desactivada{% endif %}</span></td></tr>{% endfor %}</tbody></table></div>
+{% extends 'base.html' %}
+{% block title %}Organización del catálogo · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">ORGANIZACIÓN DEL CATÁLOGO</span><h1>Categorías y áreas</h1><p>Este apartado no crea cursos. Sirve únicamente para ordenar el catálogo público y ayudar al estudiante a encontrar lo que busca.</p></div><a class="btn btn-small" href="{% url 'superadmin:category_create' %}">Crear categoría</a></div>
+<div class="category-purpose-grid">
+  <div class="sa-panel"><span class="eyebrow">EJEMPLO</span><h2>Desarrollo de software</h2><p>Puede ser una categoría principal y contener subcategorías como Python, Java o Desarrollo de Apps.</p></div>
+  <div class="sa-panel"><span class="eyebrow">EJEMPLO</span><h2>Marketing</h2><p>Puede agrupar Marketing Digital, Redes Sociales y Publicidad sin mezclar esos cursos con Desarrollo.</p></div>
+  <div class="sa-panel"><span class="eyebrow">IMPORTANTE</span><h2>Los cursos se gestionan aparte</h2><p>Para crear contenido, asignar profesores, aprobar y revisar avance utiliza el módulo <strong>Cursos</strong>.</p><a class="sa-action primary" href="{% url 'superadmin:courses' %}">Ir a Cursos</a></div>
+</div>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Nombre</th><th>Categoría superior</th><th>Orden</th><th>Estado</th></tr></thead><tbody>{% for item in categories_list %}<tr><td><strong>{{ item.name }}</strong><small>{{ item.description|truncatechars:80 }}</small></td><td>{{ item.parent|default:'Categoría principal' }}</td><td>{{ item.order }}</td><td><span class="sa-status {% if item.is_active %}ok{% else %}danger{% endif %}">{% if item.is_active %}Visible{% else %}Oculta{% endif %}</span></td></tr>{% empty %}<tr><td colspan="4">Todavía no hay categorías. Crea al menos una para poder organizar los cursos.</td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}
