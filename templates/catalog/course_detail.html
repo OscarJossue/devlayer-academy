@@ -45,7 +45,9 @@
         <a class="btn btn-block" href="{% url 'learning:course_player' course.slug %}">{% if enrollment_progress > 0 %}Continuar donde te quedaste{% else %}Comenzar curso{% endif %}</a>
       {% else %}
         <span class="eyebrow">ACCESO AL CURSO</span>
-        <div class="course-price">{% if course.price %}${{ course.price }} <small>{{ course.currency }}</small>{% else %}Gratis{% endif %}</div>
+        {% if course.has_active_discount %}<div class="course-offer-strip"><strong>{{ course.discount_status_label }}</strong><span>{{ course.discount_badge }}{% if course.discount_ends_at %} · hasta {{ course.discount_ends_at|date:'d/m/Y H:i' }}{% endif %}</span></div>{% endif %}
+        <div class="course-price{% if course.has_active_discount %} has-promo{% endif %}">{% if course.has_active_discount %}<del>${{ course.price }}</del><strong>{% if course.effective_price %}${{ course.effective_price }}{% else %}Gratis{% endif %}</strong> <small>{{ course.currency }}</small>{% elif course.price %}<strong>${{ course.price }}</strong> <small>{{ course.currency }}</small>{% else %}<strong>Gratis</strong>{% endif %}</div>
+        {% if course.has_active_discount %}<div class="course-savings">Ahorras ${{ course.discount_amount }} {{ course.currency }}</div>{% endif %}
         <div class="course-purchase-list">
           <div class="course-purchase-item"><span>Modalidad</span><strong>En línea</strong></div>
           <div class="course-purchase-item"><span>Duración aprox.</span><strong>{{ course.estimated_duration_label }}</strong></div>
@@ -62,10 +64,10 @@
           <a class="btn btn-block" href="{% url 'billing:order' latest_order.id %}">Corregir pago</a>
         {% else %}
           {% if request.user.is_authenticated %}
-            <a class="btn btn-block" href="{% url 'billing:checkout' course.slug %}">{% if course.price %}Ver opciones de pago{% else %}Inscribirme gratis{% endif %}</a>
+            <a class="btn btn-block" href="{% url 'billing:checkout' course.slug %}">{% if course.effective_price %}Ver opciones de pago{% else %}Inscribirme gratis{% endif %}</a>
           {% else %}
             {% url 'billing:checkout' course.slug as checkout_url %}
-            <a class="btn btn-block" href="{% url 'tenancy:academy_register' academy.slug %}?curso={{ course.slug|urlencode }}&next={{ checkout_url|urlencode }}">{% if course.price %}Registrarme para ver opciones de pago{% else %}Crear cuenta e inscribirme{% endif %}</a>
+            <a class="btn btn-block" href="{% url 'tenancy:academy_register' academy.slug %}?curso={{ course.slug|urlencode }}&next={{ checkout_url|urlencode }}">{% if course.effective_price %}Registrarme para ver opciones de pago{% else %}Crear cuenta e inscribirme{% endif %}</a>
             <p class="course-register-hint">Tu curso quedará guardado. Después del registro abriremos directamente el pago sin volver al catálogo.</p>
           {% endif %}
         {% endif %}

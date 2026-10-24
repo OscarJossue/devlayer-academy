@@ -9,7 +9,7 @@
       <h1>{{ order.course.title }}</h1>
       <p>{{ order.course.short_description|default:order.course.description|truncatechars:170 }}</p>
     </div>
-    <div class="payment-course-total"><span>Total</span><strong>${{ order.amount }} <small>{{ order.currency }}</small></strong></div>
+    <div class="payment-course-total"><span>{% if order.amount < order.course.price %}Precio promocional{% else %}Total{% endif %}</span>{% if order.amount < order.course.price %}<del>${{ order.course.price }}</del>{% endif %}<strong>${{ order.amount }} <small>{{ order.currency }}</small></strong>{% if order.amount < order.course.price %}<small class="payment-savings">Ahorras ${{ order.savings_amount }} {{ order.currency }}</small>{% endif %}</div>
   </div>
 
   {% if academy.payment_instructions %}<div class="payment-instructions"><strong>Indicaciones de {{ academy.name }}</strong><p>{{ academy.payment_instructions }}</p></div>{% endif %}

@@ -15,7 +15,7 @@
       <span class="course-price-float">{{ course.get_status_display }}</span>
     </div>
     <div class="course-card-body">
-      <div class="professor-course-card-top"><span class="badge badge-neutral">{{ course.category.name }}</span><strong class="professor-card-price">{{ course.price }} {{ course.currency }}</strong></div>
+      <div class="professor-course-card-top"><span class="badge badge-neutral">{{ course.category.name }}</span><div class="professor-card-price{% if course.has_active_discount %} is-promo{% endif %}">{% if course.has_active_discount %}<span class="mini-offer">{{ course.discount_badge }}</span><del>{{ course.price }}</del><strong>{{ course.effective_price }} {{ course.currency }}</strong>{% else %}<strong>{{ course.price }} {{ course.currency }}</strong>{% endif %}</div></div>
       <h3>{{ course.title }}</h3>
       <p>{% if course.short_description %}{{ course.short_description|truncatechars:135 }}{% elif course.description %}{{ course.description|striptags|truncatechars:135 }}{% else %}Curso listo para completar su descripción y objetivos de aprendizaje.{% endif %}</p>
       <div class="course-card-meta professor-course-meta course-card-meta-compact">

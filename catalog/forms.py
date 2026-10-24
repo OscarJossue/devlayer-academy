@@ -11,46 +11,120 @@ class CourseForm(forms.ModelForm):
             scope_categories(Category.objects.filter(is_active=True), academy)
             if academy else Category.objects.none()
         )
+        # Este campo se oculta para modalidades donde no aplica; el backend
+        # establece una política segura al guardar.
+        self.fields['post_certificate_policy'].required = False
 
     def clean(self):
         cleaned = super().clean()
         certificate_enabled = (getattr(self.instance, 'certificate_enabled', False) if getattr(self.instance, 'pk', None) else False)
-        if not certificate_enabled and cleaned.get('access_type') == Course.AccessType.UNTIL_CERTIFICATE:
-            self.add_error(
-                'access_type',
-                'El acceso “Hasta certificarse” requiere habilitar primero el certificado en el apartado Certificación.',
-            )
+        access_type = cleaned.get('access_type')
+        access_days = cleaned.get('access_days')
+        access_fixed_until = cleaned.get('access_fixed_until')
+        post_certificate_policy = cleaned.get('post_certificate_policy')
+        post_certificate_days = cleaned.get('post_certificate_days')
+
+        # Cada modalidad de acceso conserva exclusivamente los valores que le corresponden.
+        # Esto evita que una fecha o cantidad de días antigua siga afectando al estudiante
+        # después de cambiar el tipo de acceso del curso.
+        if access_type == Course.AccessType.PERMANENT:
+            cleaned['access_days'] = None
+            cleaned['access_fixed_until'] = None
+            cleaned['post_certificate_policy'] = Course.PostCertificatePolicy.KEEP
+            cleaned['post_certificate_days'] = None
+        elif access_type == Course.AccessType.DAYS:
+            if not access_days or access_days < 1:
+                self.add_error('access_days', 'Ingresa la cantidad de días que tendrá el estudiante desde que se active su acceso.')
+            cleaned['access_fixed_until'] = None
+            cleaned['post_certificate_policy'] = Course.PostCertificatePolicy.KEEP
+            cleaned['post_certificate_days'] = None
+        elif access_type == Course.AccessType.FIXED_DATE:
+            if not access_fixed_until:
+                self.add_error('access_fixed_until', 'Selecciona la fecha y hora hasta la que estará disponible el curso.')
+            cleaned['access_days'] = None
+            cleaned['post_certificate_policy'] = Course.PostCertificatePolicy.KEEP
+            cleaned['post_certificate_days'] = None
+        elif access_type == Course.AccessType.UNTIL_CERTIFICATE:
+            cleaned['access_days'] = None
+            cleaned['access_fixed_until'] = None
+            if not post_certificate_policy:
+                post_certificate_policy = Course.PostCertificatePolicy.BLOCK
+                cleaned['post_certificate_policy'] = post_certificate_policy
+            if not certificate_enabled:
+                self.add_error(
+                    'access_type',
+                    'El acceso “Hasta certificarse” requiere habilitar primero el certificado en el apartado Certificación.',
+                )
+            if post_certificate_policy == Course.PostCertificatePolicy.DAYS:
+                if not post_certificate_days or post_certificate_days < 1:
+                    self.add_error('post_certificate_days', 'Ingresa cuántos días adicionales conservará el acceso después de certificarse.')
+            else:
+                cleaned['post_certificate_days'] = None
+
+        price = cleaned.get('price') or 0
+        enabled = cleaned.get('discount_enabled')
+        dtype = cleaned.get('discount_type')
+        value = cleaned.get('discount_value') or 0
+        starts = cleaned.get('discount_starts_at')
+        ends = cleaned.get('discount_ends_at')
+        if enabled:
+            if price <= 0:
+                self.add_error('discount_enabled', 'No puedes aplicar un descuento a un curso gratuito.')
+            if value <= 0:
+                self.add_error('discount_value', 'Ingresa un descuento mayor a cero.')
+            elif dtype == Course.DiscountType.PERCENTAGE and value > 100:
+                self.add_error('discount_value', 'El porcentaje no puede superar el 100%.')
+            elif dtype == Course.DiscountType.FIXED and value > price:
+                self.add_error('discount_value', 'El descuento fijo no puede superar el precio normal del curso.')
+            if starts and ends and starts >= ends:
+                self.add_error('discount_ends_at', 'La fecha final debe ser posterior al inicio de la oferta.')
         return cleaned
 
     class Meta:
         model = Course
         fields = [
             'title', 'short_description', 'description', 'category', 'thumbnail',
-            'price', 'currency', 'sequential_learning', 'default_pass_percentage',
+            'price', 'currency', 'discount_enabled', 'discount_type', 'discount_value',
+            'discount_starts_at', 'discount_ends_at', 'sequential_learning', 'default_pass_percentage',
             'access_type', 'access_days', 'access_fixed_until',
             'post_certificate_policy', 'post_certificate_days', 'final_exam_required',
         ]
         labels = {
             'title': 'Nombre del curso', 'short_description': 'Descripción corta', 'description': 'Descripción completa',
-            'category': 'Categoría', 'thumbnail': 'Portada del curso', 'price': 'Precio', 'currency': 'Moneda',
+            'category': 'Categoría', 'thumbnail': 'Portada del curso', 'price': 'Precio normal', 'currency': 'Moneda',
+            'discount_enabled': 'Activar oferta / descuento', 'discount_type': 'Tipo de descuento',
+            'discount_value': 'Descuento', 'discount_starts_at': 'Inicio de la oferta', 'discount_ends_at': 'Fin de la oferta',
             'sequential_learning': 'Aprendizaje secuencial', 'default_pass_percentage': 'Nota mínima predeterminada (%)',
-            'access_type': 'Tipo de acceso', 'access_days': 'Días de acceso', 'access_fixed_until': 'Fecha límite de acceso',
-            'post_certificate_policy': 'Acceso después de certificar', 'post_certificate_days': 'Días adicionales después de certificar',
+            'access_type': 'Tipo de acceso', 'access_days': 'Cantidad de días de acceso', 'access_fixed_until': 'Disponible hasta',
+            'post_certificate_policy': 'Después de obtener el certificado', 'post_certificate_days': 'Días extra después de certificar',
             'final_exam_required': 'Examen final obligatorio',
         }
         help_texts = {
             'title': 'Usa un nombre claro y corto. Ejemplo: Python desde cero.',
             'short_description': 'Máximo 280 caracteres. Se muestra en la tarjeta del catálogo.',
-            'thumbnail': 'Imagen horizontal recomendada: 1600 × 900 px.', 'price': 'Usa 0 para un curso gratuito.',
+            'thumbnail': 'Imagen horizontal recomendada: 1600 × 900 px.', 'price': 'Precio normal antes de promociones. Usa 0 para un curso gratuito.',
+            'discount_enabled': 'Al activarlo, catálogo y checkout mostrarán automáticamente el precio promocional.',
+            'discount_type': 'Elige porcentaje o un monto fijo a descontar del precio normal.',
+            'discount_value': 'Ej.: 20 para 20% o 10 para descontar USD 10 según el tipo elegido.',
+            'discount_starts_at': 'Opcional. Déjalo vacío para iniciar inmediatamente.',
+            'discount_ends_at': 'Opcional. Si defines una fecha, se mostrará como Oferta limitada hasta ese momento.',
             'default_pass_percentage': 'Se usa cuando una evaluación no define su propia nota mínima.',
             'sequential_learning': 'Si está activo, el estudiante debe avanzar en el orden definido.',
+            'access_type': 'Elige una modalidad. Solo aparecerán las opciones que correspondan a ese tipo de acceso.',
+            'access_days': 'Cantidad de días desde la activación de la matrícula. Ej.: 30 días.',
+            'access_fixed_until': 'Fecha y hora exactas en que finalizará el acceso de todos los estudiantes de este curso.',
+            'post_certificate_policy': 'Solo aplica cuando el curso está configurado como “Hasta certificarse”.',
+            'post_certificate_days': 'Solo aplica si eliges mantener el acceso durante algunos días después de certificar.',
             'final_exam_required': 'La configuración detallada del examen se realiza únicamente en “Examen final”.',
         }
         widgets = {
             'title': forms.TextInput(attrs={'placeholder': 'Ej. Python desde cero'}),
             'short_description': forms.TextInput(attrs={'placeholder': 'Resume en una frase qué aprenderá el estudiante'}),
             'description': forms.Textarea(attrs={'placeholder': 'Explica objetivos, contenido, requisitos y resultados esperados', 'rows': 5}),
-            'price': forms.NumberInput(attrs={'placeholder': '0.00', 'step': '0.01'}), 'currency': forms.TextInput(attrs={'placeholder': 'USD'}),
+            'price': forms.NumberInput(attrs={'placeholder': '0.00', 'step': '0.01', 'min': '0'}), 'currency': forms.TextInput(attrs={'placeholder': 'USD'}),
+            'discount_value': forms.NumberInput(attrs={'placeholder': 'Ej. 20', 'step': '0.01', 'min': '0'}),
+            'discount_starts_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'discount_ends_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'access_days': forms.NumberInput(attrs={'placeholder': 'Ej. 90'}), 'access_fixed_until': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'post_certificate_days': forms.NumberInput(attrs={'placeholder': 'Ej. 30'}),
         }

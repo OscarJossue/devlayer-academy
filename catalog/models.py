@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlparse, parse_qs
 from django.conf import settings
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
@@ -50,6 +51,10 @@ class Course(models.Model):
         BLOCK = 'BLOCK', 'Bloquear al certificar'
         DAYS = 'DAYS', 'Mantener X días después'
 
+    class DiscountType(models.TextChoices):
+        PERCENTAGE = 'PERCENTAGE', 'Porcentaje (%)'
+        FIXED = 'FIXED', 'Monto fijo'
+
     class CertificateStyleMode(models.TextChoices):
         ACADEMY = 'ACADEMY', 'Usar diseño de la academia'
         CUSTOM = 'CUSTOM', 'Diseño personalizado para este curso'
@@ -61,8 +66,13 @@ class Course(models.Model):
     description = models.TextField(blank=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='courses')
     thumbnail = models.ImageField(upload_to='course_thumbnails/%Y/%m/', blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=3, default='USD')
+    discount_enabled = models.BooleanField(default=False, verbose_name='Descuento activo')
+    discount_type = models.CharField(max_length=20, choices=DiscountType.choices, default=DiscountType.PERCENTAGE, verbose_name='Tipo de descuento')
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)], verbose_name='Valor del descuento')
+    discount_starts_at = models.DateTimeField(null=True, blank=True, verbose_name='Inicio de la oferta')
+    discount_ends_at = models.DateTimeField(null=True, blank=True, verbose_name='Fin de la oferta')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     sequential_learning = models.BooleanField(default=True)
     default_pass_percentage = models.PositiveSmallIntegerField(default=70, validators=[MinValueValidator(1), MaxValueValidator(100)])
@@ -121,6 +131,55 @@ class Course(models.Model):
 
     def get_absolute_url(self):
         return reverse('catalog:course_detail', args=[self.slug])
+
+    @property
+    def has_active_discount(self):
+        """Indica si la promoción está vigente en este instante."""
+        if not self.discount_enabled or not self.price or self.price <= 0 or not self.discount_value or self.discount_value <= 0:
+            return False
+        now = timezone.now()
+        if self.discount_starts_at and now < self.discount_starts_at:
+            return False
+        if self.discount_ends_at and now > self.discount_ends_at:
+            return False
+        if self.discount_type == self.DiscountType.PERCENTAGE:
+            return self.discount_value <= 100
+        return self.discount_value <= self.price
+
+    @property
+    def effective_price(self):
+        """Precio único que deben usar catálogo, checkout y pagos."""
+        base = Decimal(self.price or 0)
+        if not self.has_active_discount:
+            return base.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        value = Decimal(self.discount_value or 0)
+        if self.discount_type == self.DiscountType.PERCENTAGE:
+            result = base - (base * value / Decimal('100'))
+        else:
+            result = base - value
+        return max(Decimal('0'), result).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def discount_amount(self):
+        if not self.has_active_discount:
+            return Decimal('0.00')
+        return (Decimal(self.price or 0) - self.effective_price).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def discount_badge(self):
+        if not self.has_active_discount:
+            return ''
+        if self.discount_type == self.DiscountType.PERCENTAGE:
+            value = Decimal(self.discount_value or 0)
+            shown = int(value) if value == value.to_integral_value() else value.normalize()
+            return f'-{shown}%'
+        return f'AHORRA {self.currency} {self.discount_amount}'
+
+    @property
+    def discount_status_label(self):
+        if not self.has_active_discount:
+            return ''
+        return 'Oferta limitada' if self.discount_ends_at else 'Oferta activa'
 
     @property
     def estimated_duration_minutes(self):

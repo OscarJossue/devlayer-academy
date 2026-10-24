@@ -45,6 +45,13 @@ class Order(models.Model):
             self.code = f'DVA-{stamp}-{suffix}'
         super().save(*args, **kwargs)
 
+    @property
+    def savings_amount(self):
+        from decimal import Decimal
+        base = Decimal(self.course.price or 0)
+        paid = Decimal(self.amount or 0)
+        return max(Decimal('0.00'), base - paid)
+
     def __str__(self):
         return self.code
 

@@ -12,6 +12,14 @@
   {% else %}
     <div class="course-progress-copy"><small>Progreso del curso</small><strong>{{ course_progress_percentage }}%</strong></div>
     <div class="course-sidebar-progress"><div class="progress"><span style="width: {{ course_progress_percentage }}%"></span></div></div>
+    <div class="course-access-status" data-access-type="{{ course.access_type }}">
+      <span class="course-access-status-icon"><svg><use href="{% static 'icons/sprite.svg' %}#reloj"></use></svg></span>
+      <div>
+        <small>TIEMPO DE ACCESO</small>
+        <strong>{{ enrollment.student_access_label }}</strong>
+        {% if enrollment.effective_access_end %}<span>Disponible hasta {{ enrollment.effective_access_end|date:'d/m/Y · H:i' }}</span>{% else %}<span>{{ enrollment.student_access_detail }}</span>{% endif %}
+      </div>
+    </div>
   {% endif %}
 
   <div class="lesson-nav">

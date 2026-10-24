@@ -75,6 +75,19 @@ def _external_payment_methods(academy):
     return methods
 
 
+def _sync_pending_order_price(order):
+    """Sincroniza una orden no pagada con el precio vigente sin alterar comprobantes ya reportados."""
+    if order.status != Order.Status.PENDING:
+        return order
+    locked = order.payments.filter(status__in=[Payment.Status.PENDING, Payment.Status.APPROVED]).exists()
+    current_price = order.course.effective_price
+    if not locked and current_price > 0 and (order.amount != current_price or order.currency != order.course.currency):
+        order.amount = current_price
+        order.currency = order.course.currency
+        order.save(update_fields=['amount', 'currency', 'updated_at'])
+    return order
+
+
 @verified_email_required
 def history(request):
     course_ids = scope_courses(Course.objects.all(), request.academy).values_list('pk', flat=True)
@@ -99,13 +112,16 @@ def checkout(request, course_slug):
     if existing and existing.access_allowed():
         messages.info(request, 'Ya tienes acceso a este curso.')
         return redirect('learning:course_player', course_slug=course.slug)
-    if course.price == 0:
+    current_price = course.effective_price
+    if current_price == 0:
         create_or_activate_enrollment(request.user, course, Enrollment.Source.FREE)
         messages.success(request, 'Curso habilitado.')
         return redirect('learning:course_player', course_slug=course.slug)
     order = Order.objects.filter(user=request.user, course=course, status=Order.Status.PENDING).order_by('-created_at').first()
     if not order:
-        order = Order.objects.create(user=request.user, course=course, amount=course.price, currency=course.currency)
+        order = Order.objects.create(user=request.user, course=course, amount=current_price, currency=course.currency)
+    else:
+        _sync_pending_order_price(order)
     return redirect('billing:order', order.id)
 
 
@@ -113,6 +129,14 @@ def checkout(request, course_slug):
 def order_detail(request, order_id):
     course_ids = scope_courses(Course.objects.all(), request.academy).values_list('pk', flat=True)
     order = get_object_or_404(Order.objects.select_related('course', 'user'), id=order_id, user=request.user, course_id__in=course_ids)
+    _sync_pending_order_price(order)
+    if order.status == Order.Status.PENDING and order.course.effective_price == 0 and not order.payments.filter(status__in=[Payment.Status.PENDING, Payment.Status.APPROVED]).exists():
+        order.status = Order.Status.CANCELLED
+        order.amount = 0
+        order.save(update_fields=['status', 'amount', 'updated_at'])
+        create_or_activate_enrollment(request.user, order.course, Enrollment.Source.FREE)
+        messages.success(request, 'La promoción vigente dejó este curso sin costo. Tu acceso ya fue habilitado.')
+        return redirect('learning:course_player', course_slug=order.course.slug)
     enrollment = Enrollment.objects.filter(user=request.user, course=order.course).first()
     if enrollment and enrollment.access_allowed():
         messages.info(request, 'Este curso ya está habilitado en tu cuenta.')

@@ -12,7 +12,11 @@
     {% else %}
       <span class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></span>
     {% endif %}
-    <span class="course-price-float">{% if course.price %}${{ course.price }} <small>{{ course.currency }}</small>{% else %}Gratis{% endif %}</span>
+    {% if course.has_active_discount %}<span class="course-offer-badge">{{ course.discount_status_label }} · {{ course.discount_badge }}</span>{% endif %}
+    <span class="course-price-float{% if course.has_active_discount %} is-promo{% endif %}">
+      {% if course.has_active_discount %}<del>${{ course.price }}</del><strong>{% if course.effective_price %}${{ course.effective_price }}{% else %}Gratis{% endif %}</strong><small>{{ course.currency }}</small>
+      {% elif course.price %}<strong>${{ course.price }}</strong> <small>{{ course.currency }}</small>{% else %}<strong>Gratis</strong>{% endif %}
+    </span>
     {% if course.student_enrollment and course.student_enrollment.access_allowed %}<span class="course-owned-label">Ya tienes este curso</span>{% endif %}
   </a>
   <div class="course-card-body">
@@ -37,7 +41,7 @@
     {% if course.student_enrollment and course.student_enrollment.access_allowed %}
       <a class="btn btn-small course-card-continue" href="{% url 'learning:course_player' course.slug %}">{% if course.student_progress > 0 %}Continuar{% else %}Comenzar{% endif %}</a>
     {% else %}
-      <a class="btn btn-small course-card-buy" href="{{ course_detail_url }}" aria-label="Adquirir {{ course.title }}">{% if course.price %}Adquirir curso{% else %}Inscribirme{% endif %}</a>
+      <a class="btn btn-small course-card-buy" href="{{ course_detail_url }}" aria-label="Adquirir {{ course.title }}">{% if course.effective_price %}Adquirir curso{% else %}Inscribirme{% endif %}</a>
     {% endif %}
   </div>
 </article>
