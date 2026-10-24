@@ -27,6 +27,7 @@
       <a href="{% url 'tenancy:academy_list' %}" class="{% if 'academy_' in request.resolver_match.url_name %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg>Academias</a>
       <a href="{% url 'tenancy:plan_list' %}" class="{% if 'plan_' in request.resolver_match.url_name %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#configuracion"></use></svg>Planes</a>
       <a href="{% url 'tenancy:system_finances' %}" class="{% if request.resolver_match.url_name == 'system_finances' %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg>Finanzas</a>
+      <a href="{% url 'tenancy:system_smtp' %}" class="{% if request.resolver_match.url_name == 'system_smtp' %}active{% endif %}"><svg><use href="{% static 'icons/sprite.svg' %}#configuracion"></use></svg>Correo SMTP</a>
       <a href="{% url 'tenancy:academy_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Nueva academia</a>
     </nav>
     <div class="sys-sidebar-note">

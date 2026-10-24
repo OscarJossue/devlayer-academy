@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Récord académico · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="page-heading academic-record-heading">
+  <div class="page-heading-copy"><span class="eyebrow">RÉCORD ACADÉMICO</span><h1>Tu historial de aprendizaje</h1><p>Revisa de forma sencilla tus cursos, promedio académico y resultados de evaluaciones.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'learning:my_courses' %}">Mis cursos</a></div>
+</div>
+
+<div class="academic-stat-grid">
+  <article class="academic-stat-card"><span class="academic-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><small>Cursos cursados</small><strong>{{ stats.courses_total }}</strong><span>{{ stats.courses_completed }} completados</span></div></article>
+  <article class="academic-stat-card"><span class="academic-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#progreso"></use></svg></span><div><small>Cursos aprobados</small><strong>{{ stats.courses_passed }}</strong><span>Con requisitos cumplidos</span></div></article>
+  <article class="academic-stat-card"><span class="academic-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#inicio"></use></svg></span><div><small>Promedio académico</small><strong>{{ stats.academic_average_display }}</strong><span>Mejor nota por evaluación</span></div></article>
+  <article class="academic-stat-card"><span class="academic-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></span><div><small>Evaluaciones aprobadas</small><strong>{{ stats.assessments_passed }}/{{ stats.assessments_total }}</strong><span>{{ stats.assessment_success }}% de efectividad</span></div></article>
+</div>
+
+<section class="panel academic-record-panel">
+  <div class="section-head"><div><span class="eyebrow">CURSOS</span><h2>Resumen por curso</h2><p>Abre un curso para revisar el detalle de cuestionarios, examen final e intentos.</p></div></div>
+  <div class="academic-course-list">
+    {% for card in cards %}
+      <article class="academic-course-row">
+        <div class="academic-course-cover">{% if card.enrollment.course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' card.enrollment.course.id %}" alt="{{ card.enrollment.course.title }}">{% else %}<span>{{ card.enrollment.course.title|slice:':2'|upper }}</span>{% endif %}</div>
+        <div class="academic-course-main">
+          <div class="academic-course-title"><div><small>{{ card.enrollment.course.category.name }}</small><h3>{{ card.enrollment.course.title }}</h3></div><span class="academic-status {{ card.status_class }}">{{ card.status_label }}</span></div>
+          <div class="academic-course-facts">
+            <span><small>Progreso</small><strong>{{ card.progress }}%</strong></span>
+            <span><small>Promedio</small><strong>{{ card.academic_average_display }}</strong></span>
+            <span><small>Nota de cierre</small><strong>{{ card.closing_score_display }}</strong></span>
+            <span><small>Evaluaciones</small><strong>{{ card.quiz_passed }}/{{ card.quiz_total }}</strong></span>
+          </div>
+          <div class="academic-progress"><div><span>Avance del curso</span><b>{{ card.progress }}%</b></div><div class="progress"><span style="width:{{ card.progress }}%"></span></div></div>
+        </div>
+        <div class="academic-course-action"><a class="btn btn-secondary btn-small" href="{% url 'learning:academic_record_course' card.enrollment.course.slug %}">Ver detalle</a></div>
+      </article>
+    {% empty %}
+      <div class="empty">Todavía no tienes cursos en tu récord académico.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Categorías · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">ORGANIZACIÓN COMPARTIDA</span><h1>Categorías de la academia</h1><p>Crea categorías para organizar tus cursos. Son compartidas dentro de {{ request.academy.name }} y aparecen automáticamente en el panel del dueño y de los profesores.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_courses' %}">Volver a mis cursos</a></div>
+</div>
+<div class="professor-category-layout">
+  <section class="panel professor-category-form">
+    <div class="section-head"><div><span class="eyebrow">NUEVA CATEGORÍA</span><h2>Crear sin duplicados</h2><p>Si el nombre ya existe en esta academia, el sistema no permitirá crearlo nuevamente.</p></div></div>
+    <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Crear categoría</button></form>
+  </section>
+  <section class="panel professor-category-list">
+    <div class="section-head"><div><span class="eyebrow">DISPONIBLES</span><h2>{{ categories_list|length }} categorías</h2></div></div>
+    <div class="category-chip-list">
+      {% for item in categories_list %}<div class="category-chip-row"><div><strong>{{ item.name }}</strong><span>{% if item.parent %}Dentro de {{ item.parent.name }}{% else %}Categoría principal{% endif %}</span></div><span class="badge {% if item.is_active %}badge-success{% else %}badge-neutral{% endif %}">{% if item.is_active %}Activa{% else %}Oculta{% endif %}</span></div>{% empty %}<div class="empty">Aún no hay categorías. Crea la primera.</div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

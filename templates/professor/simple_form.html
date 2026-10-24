@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ title }} · Devlayer Academy{% endblock %}
 {% block content %}
-<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">GESTIÓN ACADÉMICA</span><h1>{{ title }}</h1><p>{{ helper|default:'Completa la información requerida. Los campos muestran ejemplos para facilitar la carga.' }}</p></div>{% if back_url %}<div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' back_url %}">Volver al curso</a></div>{% endif %}</div>
+<div class="page-heading professor-page-heading"><div class="page-heading-copy"><span class="eyebrow">GESTIÓN ACADÉMICA</span><h1>{{ title }}</h1><p>{{ helper|default:'Completa la información requerida. Los campos muestran ejemplos para facilitar la carga.' }}</p></div>{% if back_module_id %}<div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_module_editor' back_module_id %}">← Volver al módulo</a></div>{% elif back_url %}<div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' back_url %}">← Volver al curso</a></div>{% endif %}</div>
 <section class="panel form-panel" style="max-width:820px"><form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Guardar</button></form></section>
 {% endblock %}

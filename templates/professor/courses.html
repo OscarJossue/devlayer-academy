@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mis cursos · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">MIS CURSOS</span><h1>Cursos bajo tu gestión</h1><p>Consulta la información esencial de cada curso. Al abrir una tarjeta entrarás directamente a su configuración.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary" href="{% url 'catalog:professor_categories' %}">Categorías</a><a class="btn" href="{% url 'catalog:professor_course_create' %}"><svg width="18" height="18"><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Crear curso</a></div>
+</div>
+
+<div class="course-grid professor-course-grid">
+  {% for course in courses %}
+  <a class="course-card professor-course-card" href="{% url 'catalog:professor_course_edit' course.id %}" aria-label="Configurar {{ course.title }}">
+    <div class="course-cover">
+      {% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="Portada de {{ course.title }}">{% else %}<span class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></span>{% endif %}
+      <span class="course-price-float">{{ course.get_status_display }}</span>
+    </div>
+    <div class="course-card-body">
+      <div class="professor-course-card-top"><span class="badge badge-neutral">{{ course.category.name }}</span><strong class="professor-card-price">{{ course.price }} {{ course.currency }}</strong></div>
+      <h3>{{ course.title }}</h3>
+      <p>{% if course.short_description %}{{ course.short_description|truncatechars:135 }}{% elif course.description %}{{ course.description|striptags|truncatechars:135 }}{% else %}Curso listo para completar su descripción y objetivos de aprendizaje.{% endif %}</p>
+      <div class="course-card-meta professor-course-meta course-card-meta-compact">
+        <span><strong>{{ course.modules.count }}</strong><small>Módulos</small></span>
+        <span><strong>{{ course.quizzes.count }}</strong><small>Evaluaciones</small></span>
+      </div>
+    </div>
+    <div class="course-card-footer professor-course-footer"><div><strong>Configurar curso</strong><span>Contenido, evaluaciones, acceso y certificado</span></div><span class="card-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+  </a>
+  {% empty %}<div class="empty">Todavía no tienes cursos asignados. Crea el primero desde este módulo.</div>{% endfor %}
+</div>
+{% endblock %}

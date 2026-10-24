@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Academy, AcademyLicense, AcademyMembership, AcademyPlan
+from .models import Academy, AcademyLicense, AcademyMembership, AcademyPlan, PlatformEmailSettings
 from .services import bind_user
 
 User = get_user_model()
@@ -115,7 +115,14 @@ class AcademyCreateForm(forms.Form):
         )
 
     def clean_owner_email(self):
-        return self.cleaned_data['owner_email'].lower().strip()
+        email = self.cleaned_data['owner_email'].lower().strip()
+        existing = User.objects.filter(email=email).first()
+        if existing and existing.is_superuser:
+            raise forms.ValidationError(
+                'Este correo pertenece a un administrador maestro de DevLayer Academy. '
+                'Usa un correo diferente para el dueño de la academia.'
+            )
+        return email
 
     def clean_custom_domain(self):
         value = (
@@ -187,9 +194,14 @@ class AcademyCreateForm(forms.Form):
                 first_name=self.cleaned_data['owner_first_name'],
                 last_name=self.cleaned_data['owner_last_name'],
                 role=User.Role.STUDENT,
-                email_verified=True,
+                email_verified=False,
                 is_active=True,
             )
+        else:
+            owner.first_name = self.cleaned_data['owner_first_name']
+            owner.last_name = self.cleaned_data['owner_last_name']
+            owner.is_active = True
+            owner.save(update_fields=['first_name', 'last_name', 'is_active', 'updated_at'])
         bind_user(
             owner, academy,
             role=AcademyMembership.Role.OWNER,
@@ -294,6 +306,70 @@ class LicenseForm(forms.ModelForm):
         return license_obj
 
 
+class PlatformSMTPForm(forms.Form):
+    smtp_host = forms.CharField(
+        label='Servidor SMTP', max_length=255,
+        widget=forms.TextInput(attrs={'placeholder': 'smtp.tuproveedor.com'}),
+    )
+    smtp_port = forms.ChoiceField(
+        label='Puerto', choices=[('465', '465 · SSL'), ('587', '587 · STARTTLS')], initial='587',
+    )
+    smtp_username = forms.EmailField(
+        label='Usuario / correo SMTP', widget=forms.EmailInput(attrs={'placeholder': 'academy@devlayerstudio.com'}),
+    )
+    smtp_password = forms.CharField(
+        label='Contraseña SMTP', required=False, strip=False,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Déjala vacía para conservar la contraseña actual',
+            'autocomplete': 'new-password',
+        }),
+    )
+    smtp_from_name = forms.CharField(
+        label='Nombre remitente', max_length=160, initial='DevLayer Studio',
+        widget=forms.TextInput(attrs={'placeholder': 'DevLayer Studio'}),
+    )
+    test_email = forms.EmailField(
+        label='Enviar prueba a', required=False,
+        widget=forms.EmailInput(attrs={'placeholder': 'tu-correo@dominio.com'}),
+    )
+
+    def __init__(self, *args, instance=None, **kwargs):
+        self.instance = instance or PlatformEmailSettings.load()
+        if not args and 'initial' not in kwargs:
+            kwargs['initial'] = {
+                'smtp_host': self.instance.smtp_host,
+                'smtp_port': str(self.instance.smtp_port or (465 if self.instance.smtp_use_ssl else 587)),
+                'smtp_username': self.instance.smtp_username or self.instance.smtp_from_email,
+                'smtp_from_name': self.instance.smtp_from_name or 'DevLayer Studio',
+            }
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get('smtp_password') and not self.instance.smtp_password:
+            self.add_error('smtp_password', 'Ingresa la contraseña SMTP la primera vez.')
+        if self.data.get('action') == 'test' and not cleaned.get('test_email'):
+            self.add_error('test_email', 'Indica un correo para enviar la prueba.')
+        return cleaned
+
+    def save(self):
+        obj = self.instance
+        port = int(self.cleaned_data['smtp_port'])
+        username = self.cleaned_data['smtp_username'].strip()
+        obj.is_enabled = True
+        obj.smtp_host = self.cleaned_data['smtp_host'].strip()
+        obj.smtp_port = port
+        obj.smtp_username = username
+        if self.cleaned_data.get('smtp_password'):
+            obj.smtp_password = self.cleaned_data['smtp_password']
+        obj.smtp_from_email = username
+        obj.smtp_from_name = self.cleaned_data['smtp_from_name'].strip() or 'DevLayer Studio'
+        obj.smtp_use_ssl = port == 465
+        obj.smtp_use_tls = port == 587
+        obj.save()
+        return obj
+
+
 class AcademyOwnerForm(forms.Form):
     first_name = forms.CharField(label='Nombre', max_length=150)
     last_name = forms.CharField(label='Apellido', max_length=150)
@@ -304,9 +380,21 @@ class AcademyOwnerForm(forms.Form):
     )
 
     def clean_email(self):
-        return self.cleaned_data['email'].lower().strip()
+        email = self.cleaned_data['email'].lower().strip()
+        existing = User.objects.filter(email=email).first()
+        if existing and existing.is_superuser:
+            raise forms.ValidationError(
+                'Este correo pertenece a un administrador maestro. Usa una cuenta distinta para el dueño.'
+            )
+        return email
 
     def save(self, academy):
+        # Limpia únicamente una membresía OWNER inválida que apunte por error a
+        # un superusuario global. Esas cuentas nunca pueden ser dueños tenant.
+        superuser_ids = User.objects.filter(is_superuser=True).values_list('pk', flat=True)
+        AcademyMembership.objects.filter(
+            academy=academy, role=AcademyMembership.Role.OWNER, user_id__in=superuser_ids
+        ).delete()
         if AcademyMembership.objects.filter(academy=academy, role=AcademyMembership.Role.OWNER).exists():
             raise forms.ValidationError('Esta academia ya tiene un dueño asignado.')
         user = User.objects.filter(email=self.cleaned_data['email']).first()
@@ -317,9 +405,14 @@ class AcademyOwnerForm(forms.Form):
                 first_name=self.cleaned_data['first_name'],
                 last_name=self.cleaned_data['last_name'],
                 role=User.Role.STUDENT,
-                email_verified=True,
+                email_verified=False,
                 is_active=True,
             )
+        else:
+            user.first_name = self.cleaned_data['first_name']
+            user.last_name = self.cleaned_data['last_name']
+            user.is_active = True
+            user.save(update_fields=['first_name', 'last_name', 'is_active', 'updated_at'])
         bind_user(user, academy, role=AcademyMembership.Role.OWNER, status=AcademyMembership.Status.ACTIVE)
         return user
 

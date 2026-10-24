@@ -6,6 +6,24 @@
   <div class="sys-actions"><a class="sys-btn secondary" href="{% url 'tenancy:academy_public' academy.slug %}" target="_blank" rel="noopener">Abrir academia</a><span class="sys-status large {% if academy.access_enabled %}ok{% else %}danger{% endif %}">{% if academy.access_enabled %}Licencia habilitada{% else %}Acceso bloqueado{% endif %}</span></div>
 </div>
 
+{% if owner_credentials %}
+<section class="sys-panel owner-credential-reveal">
+  <div class="sys-panel-head"><div><span class="sys-kicker">CREDENCIALES TEMPORALES · MOSTRAR UNA SOLA VEZ</span><h2>Guarda estas credenciales ahora</h2></div><span class="sys-status warning">No se volverá a mostrar</span></div>
+  <p class="sys-panel-note">Por seguridad la contraseña no se almacena en texto plano. Si la pierdes, genera una nueva contraseña temporal desde esta misma pantalla.</p>
+  <div class="credential-grid">
+    <label><span>Correo de acceso</span><div class="credential-copy"><code>{{ owner_credentials.email }}</code><button type="button" data-copy-value="{{ owner_credentials.email }}">Copiar</button></div></label>
+    <label><span>Contraseña temporal</span><div class="credential-copy"><code>{{ owner_credentials.password }}</code><button type="button" data-copy-value="{{ owner_credentials.password }}">Copiar</button></div></label>
+    <label class="full"><span>URL de ingreso</span><div class="credential-copy"><code>{{ request.scheme }}://{{ request.get_host }}{{ academy_login_url }}</code><button type="button" data-copy-value="{{ request.scheme }}://{{ request.get_host }}{{ academy_login_url }}">Copiar</button></div></label>
+  </div>
+</section>
+{% endif %}
+
+{% if invalid_owner_accounts %}
+<div class="sys-alert danger">
+  <strong>Dueño inválido detectado.</strong> Esta academia quedó vinculada por error a una cuenta maestra de la plataforma. Esa cuenta no consume el cupo de dueño ni puede operar como dueño tenant. Usa “Crear dueño” para asignar una cuenta independiente.
+</div>
+{% endif %}
+
 <div class="sys-license-overview">
   <div><span class="sys-kicker">PLAN ACTUAL</span><h2>{{ academy.license.plan_name }}</h2><p>{{ academy.license.effective_status }} · {% if academy.license.ends_at %}vence {{ academy.license.ends_at|date:'d/m/Y' }}{% else %}sin vencimiento{% endif %}</p></div>
   <div class="sys-license-number"><small>Valor</small><strong>{{ academy.license.currency }} {{ academy.license.price|floatformat:2 }}</strong><span>{{ academy.license.currency }} {{ academy.license.daily_cost|floatformat:2 }} / día</span></div>
@@ -16,7 +34,7 @@
 <div class="sys-usage-grid">
   <div class="sys-usage-card"><span>Estudiantes activos</span><strong>{{ usage.students.used }} <small>/ {% if usage.students.unlimited %}∞{% else %}{{ usage.students.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.students.percent }}%"></i></div></div>
   <div class="sys-usage-card"><span>Profesores</span><strong>{{ usage.professors.used }} <small>/ {% if usage.professors.unlimited %}∞{% else %}{{ usage.professors.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.professors.percent }}%"></i></div></div>
-  <div class="sys-usage-card"><span>Administradores</span><strong>{{ usage.admins.used }} <small>/ {% if usage.admins.unlimited %}∞{% else %}{{ usage.admins.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.admins.percent }}%"></i></div></div>
+  <div class="sys-usage-card"><span>Administradores</span><strong>{{ usage.admins.used }} <small>/ {% if usage.admins.unlimited %}∞{% else %}{{ usage.admins.limit }}{% endif %}</small></strong><div><i style="width:{{ usage.admins.percent }}%"></i></div><small class="usage-help">El dueño los crea desde Usuarios de la academia → Agregar profesor o administrador.</small></div>
   <div class="sys-usage-card"><span>Dueño</span><strong>{{ usage.owners.used }} <small>/ 1</small></strong><div><i style="width:{{ usage.owners.percent }}%"></i></div></div>
 </div>
 
@@ -28,12 +46,45 @@
   <form method="post" action="{% url 'tenancy:license_action' academy.id %}">{% csrf_token %}<button name="action" value="extend_365" class="sys-btn secondary" type="submit">+365 días</button></form>
 </div>
 
-<section class="sys-panel sys-owner-panel"><div class="sys-panel-head"><div><span class="sys-kicker">DUEÑO DE LA ACADEMIA</span><h2>Cuenta principal</h2></div></div><div class="sys-list">{% for row in owners %}<div class="sys-list-row"><div><strong>{{ row.user.display_name }}</strong><span>{{ row.user.email }} · Gestiona branding, SMTP, cursos, usuarios y finanzas internas.</span></div><span class="sys-status {% if row.membership.status == 'ACTIVE' %}ok{% else %}danger{% endif %}">{{ row.membership.get_status_display }}</span></div>{% empty %}<div class="sys-empty"><p>Esta academia no tiene dueño asignado.</p><a class="sys-btn primary compact" href="{% url 'tenancy:academy_superadmin_create' academy.id %}">Crear dueño</a></div>{% endfor %}</div></section>
+<section class="sys-panel sys-owner-panel">
+  <div class="sys-panel-head"><div><span class="sys-kicker">DUEÑO DE LA ACADEMIA</span><h2>Cuenta principal</h2></div></div>
+  <div class="sys-list">
+    {% for row in owners %}
+    <div class="sys-list-row owner-account-row">
+      <div>
+        <strong>{{ row.user.display_name }}</strong>
+        <span>{{ row.user.email }} · {{ row.membership.get_status_display }}</span>
+        <small>Acceso: {{ request.scheme }}://{{ request.get_host }}{{ academy_login_url }}</small>
+      </div>
+      <div class="owner-account-actions">
+        <span class="sys-status {% if row.user.email_verified %}ok{% else %}warning{% endif %}">{% if row.user.email_verified %}Correo verificado{% else %}Verificación pendiente{% endif %}</span>
+        {% if not row.user.email_verified %}<form method="post" action="{% url 'tenancy:academy_owner_action' academy.id %}">{% csrf_token %}<button class="sys-btn secondary compact" name="action" value="resend_verification" type="submit">Reenviar verificación</button></form>{% endif %}
+        <form method="post" action="{% url 'tenancy:academy_owner_action' academy.id %}">{% csrf_token %}<button class="sys-btn secondary compact" name="action" value="reset_password" type="submit">Nueva contraseña temporal</button></form>
+      </div>
+    </div>
+    {% empty %}
+    <div class="sys-empty"><p>Esta academia no tiene un dueño válido asignado.</p><a class="sys-btn primary compact" href="{% url 'tenancy:academy_superadmin_create' academy.id %}">Crear dueño</a></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="sys-panel">
+  <div class="sys-panel-head"><div><span class="sys-kicker">CORREO TRANSACCIONAL</span><h2>Proveedor de verificaciones y recuperación</h2></div><span class="sys-status {% if platform_mail_ready or academy.smtp_configured %}ok{% else %}danger{% endif %}">{% if academy.smtp_configured %}SMTP propio{% elif platform_mail_ready %}DevLayer predeterminado{% else %}Sin servicio{% endif %}</span></div>
+  <p class="sys-panel-note">Si el dueño no configura un dominio propio, su academia usa automáticamente el SMTP global de DevLayer Studio configurado en el panel maestro. Verificación de correo y recuperación de contraseña funcionan con el mismo proveedor.</p>
+</section>
 
 <div class="sys-grid-2">
-  <section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">DATOS CONTRACTUALES</span><h2>Información del cliente</h2></div></div><p class="sys-panel-note">El logo, color, frase pública, descripción y SMTP los configura el dueño desde su propia academia.</p><form method="post" action="{% url 'tenancy:academy_update' academy.id %}" class="sys-form">{% csrf_token %}{% for field in academy_form %}<label><span>{{ field.label }}</span>{{ field }}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}<button class="sys-btn primary" type="submit">Guardar datos</button></form></section>
+  <section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">DATOS CONTRACTUALES</span><h2>Información del cliente</h2></div></div><p class="sys-panel-note">El logo, color, frase pública, descripción y SMTP propio los configura el dueño desde su academia.</p><form method="post" action="{% url 'tenancy:academy_update' academy.id %}" class="sys-form">{% csrf_token %}{% for field in academy_form %}<label><span>{{ field.label }}</span>{{ field }}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}<button class="sys-btn primary" type="submit">Guardar datos</button></form></section>
   <section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">LICENCIA Y COBRO</span><h2>Condiciones comerciales</h2></div></div><form method="post" action="{% url 'tenancy:license_update' academy.id %}" class="sys-form">{% csrf_token %}{% for field in license_form %}<label><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}<button class="sys-btn primary" type="submit">Guardar licencia</button></form></section>
 </div>
 
 <div class="sys-grid-2"><section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">USO</span><h2>Usuarios recientes</h2></div></div><div class="sys-list">{% for row in users %}<div class="sys-list-row"><div><strong>{{ row.user.display_name }}</strong><span>{{ row.user.email }} · {{ row.membership.get_role_display }} · {{ row.membership.get_status_display }}</span></div></div>{% empty %}<div class="sys-empty">Sin usuarios.</div>{% endfor %}</div></section><section class="sys-panel"><div class="sys-panel-head"><div><span class="sys-kicker">CONTENIDO</span><h2>Cursos recientes</h2></div></div><div class="sys-list">{% for course in courses %}<div class="sys-list-row"><div><strong>{{ course.title }}</strong><span>{{ course.get_status_display }}</span></div></div>{% empty %}<div class="sys-empty">Sin cursos.</div>{% endfor %}</div></section></div>
+
+<script>
+document.querySelectorAll('[data-copy-value]').forEach((button)=>{
+  button.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(button.dataset.copyValue || ''); button.textContent='Copiado'; setTimeout(()=>button.textContent='Copiar',1200); }catch(e){}
+  });
+});
+</script>
 {% endblock %}

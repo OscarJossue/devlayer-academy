@@ -1,4 +1,5 @@
 import uuid
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
 from django.db import models
 from catalog.models import Course, Module
@@ -8,6 +9,11 @@ class Quiz(models.Model):
     class Kind(models.TextChoices):
         MODULE = 'MODULE', 'Cuestionario de módulo'
         FINAL = 'FINAL', 'Examen final'
+
+    class TimeMode(models.TextChoices):
+        NONE = 'NONE', 'Sin tiempo'
+        LIMIT = 'LIMIT', 'Tiempo límite'
+        STOPWATCH = 'STOPWATCH', 'Cronómetro recomendado'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='quizzes')
@@ -21,6 +27,8 @@ class Quiz(models.Model):
     randomize_questions = models.BooleanField(default=True)
     randomize_choices = models.BooleanField(default=True)
     is_required = models.BooleanField(default=True)
+    time_mode = models.CharField(max_length=20, choices=TimeMode.choices, default=TimeMode.NONE)
+    time_limit_minutes = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(600)])
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -30,6 +38,44 @@ class Quiz(models.Model):
     @property
     def required_score(self):
         return self.pass_percentage or self.course.default_pass_percentage
+
+    @property
+    def timing_label(self):
+        if self.time_mode == self.TimeMode.NONE:
+            return 'Sin tiempo'
+        minutes = self.time_limit_minutes or 0
+        if self.time_mode == self.TimeMode.LIMIT:
+            return f'{minutes} min · límite estricto'
+        return f'{minutes} min · cronómetro recomendado'
+
+    def clean(self):
+        errors = {}
+        if self.kind == self.Kind.MODULE:
+            if not self.module_id:
+                errors['module'] = 'Un cuestionario de módulo debe estar vinculado a un módulo.'
+            elif self.course_id and self.module.course_id != self.course_id:
+                errors['module'] = 'El módulo debe pertenecer al mismo curso de la evaluación.'
+        elif self.kind == self.Kind.FINAL and self.module_id:
+            errors['module'] = 'El examen final pertenece al curso completo y no a un módulo.'
+
+        if self.time_mode != self.TimeMode.NONE and not self.time_limit_minutes:
+            errors['time_limit_minutes'] = 'Indica los minutos para esta modalidad de tiempo.'
+
+        if self.module_id and self.kind == self.Kind.MODULE:
+            duplicate = Quiz.objects.filter(module_id=self.module_id, kind=self.Kind.MODULE).exclude(pk=self.pk)
+            if duplicate.exists():
+                errors['module'] = 'Este módulo ya tiene un cuestionario configurado.'
+        if self.course_id and self.kind == self.Kind.FINAL:
+            duplicate = Quiz.objects.filter(course_id=self.course_id, kind=self.Kind.FINAL).exclude(pk=self.pk)
+            if duplicate.exists():
+                errors['kind'] = 'Este curso ya tiene un examen final configurado.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.course} · {self.title}'
@@ -78,10 +124,23 @@ class QuizAttempt(models.Model):
     passed = models.BooleanField(default=False)
     identity_photo = models.ImageField(upload_to='private/exam_identity/%Y/%m/', null=True, blank=True)
     identity_consent = models.BooleanField(default=False)
+    time_mode_snapshot = models.CharField(max_length=20, choices=Quiz.TimeMode.choices, default=Quiz.TimeMode.NONE)
+    time_limit_minutes_snapshot = models.PositiveIntegerField(null=True, blank=True)
+    elapsed_seconds = models.PositiveIntegerField(null=True, blank=True)
+    overtime_seconds = models.PositiveIntegerField(default=0)
+    timed_out = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-started_at']
         constraints = [models.UniqueConstraint(fields=['quiz', 'enrollment', 'number'], name='unique_quiz_attempt_number')]
+
+    def clean(self):
+        if self.quiz_id and self.enrollment_id and self.quiz.course_id != self.enrollment.course_id:
+            raise ValidationError('El intento debe pertenecer al mismo curso de la matrícula.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.enrollment} · {self.quiz} · #{self.number}'

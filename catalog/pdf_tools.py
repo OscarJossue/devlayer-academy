@@ -152,11 +152,11 @@ def pdf_page_count(field_file) -> int:
         return _page_count_path(path)
 
 
-def render_pdf_page(field_file, page_number: int, *, width: int = 1600, quality: int = 82) -> bytes:
+def render_pdf_page(field_file, page_number: int, *, width: int = 2200, quality: int = 88) -> bytes:
     """Renderiza UNA página bajo demanda para el visor horizontal del estudiante.
 
     No se guarda una segunda copia de las diapositivas en media; se conserva solo el PDF
-    comprimido. La respuesta puede cachearse en el navegador como recurso privado.
+    comprimido. La respuesta se renderiza con resolución suficiente para lectura a pantalla completa.
     """
     if not field_file:
         raise PDFMaterialError('La clase no tiene material PDF.')

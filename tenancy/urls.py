@@ -21,9 +21,10 @@ urlpatterns = [
     path('academy/<slug:slug>/portada/<uuid:pk>/', views.academy_course_thumbnail, name='academy_course_thumbnail'),
 
     path('sistema/ingresar/', views.SystemOwnerLoginView.as_view(), name='system_login'),
-    path('sistema/salir/', auth_views.LogoutView.as_view(next_page='/sistema/ingresar/'), name='system_logout'),
+    path('sistema/salir/', account_views.secure_logout, name='system_logout'),
     path('sistema/', views.system_dashboard, name='system_dashboard'),
     path('sistema/finanzas/', views.system_finances, name='system_finances'),
+    path('sistema/correo/', views.system_smtp, name='system_smtp'),
     path('sistema/planes/', views.plan_list, name='plan_list'),
     path('sistema/planes/nuevo/', views.plan_create, name='plan_create'),
     path('sistema/planes/<uuid:plan_id>/editar/', views.plan_edit, name='plan_edit'),
@@ -34,5 +35,6 @@ urlpatterns = [
     path('sistema/academias/<uuid:academy_id>/licencia/', views.license_update, name='license_update'),
     path('sistema/academias/<uuid:academy_id>/licencia/accion/', views.license_action, name='license_action'),
     path('sistema/academias/<uuid:academy_id>/superadmin/nuevo/', views.academy_superadmin_create, name='academy_superadmin_create'),
+    path('sistema/academias/<uuid:academy_id>/dueno/accion/', views.academy_owner_action, name='academy_owner_action'),
     path('licencia-bloqueada/', views.license_blocked, name='license_blocked'),
 ]

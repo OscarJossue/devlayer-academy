@@ -2,28 +2,59 @@
 {% block title %}Métodos de pago · {{ academy.name }}{% endblock %}
 {% block content %}
 <div class="sa-page-head">
-  <div><span class="eyebrow">COBROS DE LA ACADEMIA</span><h1>Métodos de pago</h1><p>Configura cómo pagarán los estudiantes. Todo lo definido aquí pertenece únicamente a {{ academy.name }}.</p></div>
+  <div><span class="eyebrow">COBROS DE LA ACADEMIA</span><h1>Métodos de pago</h1><p>Activa únicamente las opciones que quieras ofrecer. Los estudiantes solo verán los datos configurados por {{ academy.name }}.</p></div>
   <a class="btn btn-small" href="{% url 'superadmin:bank_create' %}">Añadir cuenta bancaria</a>
 </div>
 
 <div class="sa-grid-2 payment-settings-grid">
   <section class="sa-panel">
     <div class="sa-panel-head"><div><span class="eyebrow">CONFIGURACIÓN</span><h2>Métodos habilitados</h2></div></div>
-    <form method="post" class="form-stack compact-form">{% csrf_token %}<input type="hidden" name="section" value="payment_settings">{% include 'partials/form_fields.html' with form=payment_settings_form %}<button class="btn" type="submit">Guardar métodos</button></form>
+    <form method="post" class="form-stack payment-admin-form" data-payment-admin-form>{% csrf_token %}<input type="hidden" name="section" value="payment_settings">
+      {% if payment_settings_form.non_field_errors %}<div class="message error">{{ payment_settings_form.non_field_errors }}</div>{% endif %}
+      <div class="payment-config-card">
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_transfer_enabled }}<span><strong>Transferencias bancarias</strong><small>Usa las cuentas configuradas en la tabla inferior.</small></span></label>
+      </div>
+      <div class="payment-config-card" data-payment-config>
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_paypal_enabled }}<span><strong>PayPal</strong><small>Configura correo, link o ambos.</small></span></label>
+        <div class="payment-config-fields" data-payment-config-fields><label>{{ payment_settings_form.payment_paypal_email.label }}{{ payment_settings_form.payment_paypal_email }}{{ payment_settings_form.payment_paypal_email.errors }}</label><label>{{ payment_settings_form.payment_paypal_url.label }}{{ payment_settings_form.payment_paypal_url }}{{ payment_settings_form.payment_paypal_url.errors }}</label></div>
+      </div>
+      <div class="payment-config-card" data-payment-config>
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_payphone_enabled }}<span><strong>PayPhone</strong><small>Define la referencia y/o el enlace que verá el estudiante.</small></span></label>
+        <div class="payment-config-fields" data-payment-config-fields><label>{{ payment_settings_form.payment_payphone_reference.label }}{{ payment_settings_form.payment_payphone_reference }}{{ payment_settings_form.payment_payphone_reference.errors }}</label><label>{{ payment_settings_form.payment_payphone_url.label }}{{ payment_settings_form.payment_payphone_url }}{{ payment_settings_form.payment_payphone_url.errors }}</label></div>
+      </div>
+      <div class="payment-config-card" data-payment-config>
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_card_enabled }}<span><strong>Tarjetas por link</strong><small>El estudiante solicita un link seguro directamente por WhatsApp.</small></span></label>
+        <div class="payment-config-fields" data-payment-config-fields><label>{{ payment_settings_form.payment_card_instructions.label }}{{ payment_settings_form.payment_card_instructions }}{{ payment_settings_form.payment_card_instructions.errors }}</label></div>
+      </div>
+      <div class="payment-config-card" data-payment-config>
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_link_1_enabled }}<span><strong>Link de pago 1</strong><small>Para cualquier proveedor externo adicional.</small></span></label>
+        <div class="payment-config-fields" data-payment-config-fields><label>{{ payment_settings_form.payment_link_1_label.label }}{{ payment_settings_form.payment_link_1_label }}{{ payment_settings_form.payment_link_1_label.errors }}</label><label>{{ payment_settings_form.payment_link_1_url.label }}{{ payment_settings_form.payment_link_1_url }}{{ payment_settings_form.payment_link_1_url.errors }}</label></div>
+      </div>
+      <div class="payment-config-card" data-payment-config>
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_link_2_enabled }}<span><strong>Link de pago 2</strong><small>Segundo proveedor o link alternativo.</small></span></label>
+        <div class="payment-config-fields" data-payment-config-fields><label>{{ payment_settings_form.payment_link_2_label.label }}{{ payment_settings_form.payment_link_2_label }}{{ payment_settings_form.payment_link_2_label.errors }}</label><label>{{ payment_settings_form.payment_link_2_url.label }}{{ payment_settings_form.payment_link_2_url }}{{ payment_settings_form.payment_link_2_url.errors }}</label></div>
+      </div>
+      <div class="payment-config-card" data-payment-config>
+        <label class="payment-config-toggle">{{ payment_settings_form.payment_whatsapp_enabled }}<span><strong>WhatsApp para pagos</strong><small>Permite enviar comprobantes o solicitar links de pago.</small></span></label>
+        <div class="payment-config-fields" data-payment-config-fields><label>{{ payment_settings_form.payment_whatsapp_number.label }}{{ payment_settings_form.payment_whatsapp_number }}{{ payment_settings_form.payment_whatsapp_number.errors }}<small>{{ payment_settings_form.payment_whatsapp_number.help_text }}</small></label></div>
+      </div>
+      <div class="payment-config-card always-open"><label>{{ payment_settings_form.payment_instructions.label }}{{ payment_settings_form.payment_instructions }}{{ payment_settings_form.payment_instructions.errors }}</label></div>
+      <button class="btn" type="submit">Guardar métodos</button>
+    </form>
   </section>
   <section class="sa-panel payment-flow-card">
-    <span class="eyebrow">FLUJO DEL ESTUDIANTE</span><h2>Así aparecerá el cobro</h2>
+    <span class="eyebrow">FLUJO DEL ESTUDIANTE</span><h2>Compra sin salir de su sesión</h2>
     <div class="payment-flow-steps">
-      <div><b>1</b><span>El estudiante elige un curso de pago.</span></div>
-      <div><b>2</b><span>Ve solo las cuentas y métodos activos de esta academia.</span></div>
-      <div><b>3</b><span>Sube el comprobante y queda pendiente.</span></div>
-      <div><b>4</b><span>El dueño aprueba y el acceso se activa automáticamente.</span></div>
+      <div><b>1</b><span>Abre el curso desde Explorar cursos dentro de su panel.</span></div>
+      <div><b>2</b><span>Ve precio, detalle y solo los métodos activos de esta academia.</span></div>
+      <div><b>3</b><span>Paga por banco, PayPal, PayPhone, link o solicita tarjeta por WhatsApp.</span></div>
+      <div><b>4</b><span>Envía el comprobante y el acceso se activa únicamente después de aprobación.</span></div>
     </div>
   </section>
 </div>
 
 <section class="sa-panel bank-list-panel">
-  <div class="sa-panel-head"><div><span class="eyebrow">TRANSFERENCIAS</span><h2>Cuentas bancarias</h2></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:bank_create' %}">Nueva cuenta</a></div>
+  <div class="sa-panel-head"><div><span class="eyebrow">TRANSFERENCIAS</span><h2>Cuentas bancarias</h2><p class="muted">Puedes registrar varias cuentas y decidir cuáles mostrar.</p></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:bank_create' %}">Nueva cuenta</a></div>
   <div class="sa-table-wrap embedded-table"><table class="sa-table"><thead><tr><th>Banco</th><th>Cuenta</th><th>Titular</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
   {% for item in banks_list %}<tr>
     <td><strong>{{ item.bank_name }}</strong><small>{{ item.account_type|default:'Sin tipo' }}</small></td>

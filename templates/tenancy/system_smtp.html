@@ -1,0 +1,44 @@
+{% extends 'tenancy/system_base.html' %}
+{% block title %}Correo SMTP · DevLayer Academy{% endblock %}
+{% block content %}
+<div class="sys-page-head compact-head">
+  <div>
+    <span class="sys-kicker">CORREO GLOBAL</span>
+    <h1>SMTP de DevLayer Studio</h1>
+    <p>Este proveedor se usa automáticamente en todas las academias que seleccionen “Usar configuración predeterminada”. Las credenciales nunca se muestran a los dueños.</p>
+  </div>
+  <span class="sys-status large {% if smtp_ready %}ok{% else %}danger{% endif %}">{% if smtp_ready %}Servicio disponible{% else %}Sin configurar{% endif %}</span>
+</div>
+
+<div class="sys-grid-2">
+  <section class="sys-panel">
+    <div class="sys-panel-head"><div><span class="sys-kicker">PROVEEDOR PREDETERMINADO</span><h2>Configuración SMTP</h2></div></div>
+    <div class="sys-info-strip">
+      <strong>Uso centralizado</strong>
+      <span>Verificación de correo, recuperación de contraseña y notificaciones usarán este SMTP cuando la academia no tenga un dominio propio.</span>
+    </div>
+    <form method="post" class="sys-form">{% csrf_token %}
+      {% for field in form %}
+      <label><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>
+      {% endfor %}
+      {% if form.non_field_errors %}<div class="sys-alert danger">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="sys-actions wrap">
+        <button class="sys-btn primary" name="action" value="save" type="submit">Guardar SMTP global</button>
+        <button class="sys-btn secondary" name="action" value="test" type="submit">Guardar y enviar prueba</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="sys-panel">
+    <div class="sys-panel-head"><div><span class="sys-kicker">ESTADO</span><h2>Proveedor heredado</h2></div></div>
+    <div class="sys-list">
+      <div class="sys-list-row"><div><strong>SMTP del panel maestro</strong><span>{% if db_smtp_ready %}{{ smtp_settings.smtp_username }} · {{ smtp_settings.smtp_host }}:{{ smtp_settings.smtp_port }}{% else %}Aún no configurado desde este panel.{% endif %}</span></div><span class="sys-status {% if db_smtp_ready %}ok{% else %}danger{% endif %}">{% if db_smtp_ready %}Activo{% else %}Pendiente{% endif %}</span></div>
+      <div class="sys-list-row"><div><strong>Academias sin dominio propio</strong><span>Usarán automáticamente este proveedor sin conocer usuario, contraseña ni servidor.</span></div><span class="sys-status ok">Automático</span></div>
+      <div class="sys-list-row"><div><strong>Academias con SMTP propio</strong><span>Su configuración local tiene prioridad únicamente dentro de esa academia.</span></div><span class="sys-status">Aislado</span></div>
+    </div>
+    {% if smtp_settings.is_enabled %}
+    <form method="post" style="margin-top:18px">{% csrf_token %}<button class="sys-btn warning" name="action" value="disable" type="submit">Deshabilitar SMTP global</button></form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

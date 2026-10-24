@@ -226,7 +226,10 @@ class Lesson(models.Model):
 
     def embed_url(self):
         vid = self.youtube_id()
-        return f'https://www.youtube-nocookie.com/embed/{vid}?rel=0&modestbranding=1' if vid else ''
+        return (
+            f'https://www.youtube-nocookie.com/embed/{vid}'
+            '?rel=0&modestbranding=1&controls=1&fs=1&playsinline=1&iv_load_policy=3'
+        ) if vid else ''
 
     def __str__(self):
         return f'{self.module} · {self.order}. {self.title}'

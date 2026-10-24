@@ -1,5 +1,7 @@
 from datetime import timedelta
 import mimetypes
+import secrets
+import string
 from decimal import Decimal
 
 from django.contrib import messages
@@ -13,13 +15,16 @@ from django.utils import timezone
 
 from accounts.forms import EmailAuthenticationForm
 from accounts.models import User
+from accounts.services import send_verification_email
 from billing.models import Order, Payment
 from catalog.models import Category, Course
 from core.decorators import platform_owner_required
+from core.fields import _fernet
 
-from .forms import AcademyCreateForm, AcademyEditForm, AcademyOwnerForm, AcademyPlanForm, LicenseForm
-from .models import Academy, AcademyLicense, AcademyMembership, AcademyPlan, PlatformAuditLog
+from .forms import AcademyCreateForm, AcademyEditForm, AcademyOwnerForm, AcademyPlanForm, LicenseForm, PlatformSMTPForm
+from .models import Academy, AcademyLicense, AcademyMembership, AcademyPlan, PlatformAuditLog, PlatformEmailSettings
 from .services import academy_course_ids, academy_for_user, academy_license_usage, academy_user_ids, current_academy_from_session, log_platform_event, membership_for_user, scope_categories, scope_courses
+from .mail import platform_mail_available, send_platform_mail
 
 
 class SystemOwnerLoginView(auth_views.LoginView):
@@ -104,7 +109,7 @@ def system_finances(request):
         if not license_obj:
             continue
         owner_id = AcademyMembership.objects.filter(academy=academy, role=AcademyMembership.Role.OWNER).values_list('user_id', flat=True)
-        owner = User.objects.filter(pk__in=owner_id).first()
+        owner = User.objects.filter(pk__in=owner_id, is_superuser=False).first()
         rows.append({'academy': academy, 'license': license_obj, 'owner': owner})
     rows.sort(key=lambda x: (x['license'].ends_at is None, x['license'].ends_at or timezone.localdate()))
     return render(request, 'tenancy/system_finances.html', {
@@ -163,7 +168,7 @@ def academy_list(request):
     rows = []
     for academy in qs:
         owner_ids = academy_user_ids(academy, roles=[AcademyMembership.Role.OWNER])
-        owner = User.objects.filter(pk__in=owner_ids).first()
+        owner = User.objects.filter(pk__in=owner_ids, is_superuser=False).first()
         usage = academy_license_usage(academy)
         rows.append({
             'academy': academy,
@@ -175,6 +180,102 @@ def academy_list(request):
     return render(request, 'tenancy/academy_list.html', {'rows': rows, 'q': q})
 
 
+def _owner_credentials_key(academy):
+    return f'owner_credentials_{academy.pk}'
+
+
+def _stash_owner_credentials(request, academy, user, password):
+    # Se conserva únicamente durante el redirect inmediato y cifrada con la
+    # misma clave de contenido del sistema. academy_detail hace pop() y borra
+    # el valor en cuanto se muestra.
+    token = _fernet().encrypt(password.encode()).decode()
+    request.session[_owner_credentials_key(academy)] = {
+        'email': user.email,
+        'password_token': token,
+    }
+    request.session.modified = True
+
+
+def _pop_owner_credentials(request, academy):
+    payload = request.session.pop(_owner_credentials_key(academy), None)
+    request.session.modified = True
+    if not payload:
+        return None
+    try:
+        password = _fernet().decrypt(payload.get('password_token', '').encode()).decode()
+    except Exception:
+        return None
+    return {'email': payload.get('email', ''), 'password': password}
+
+
+def _strong_temp_password(length=22):
+    alphabet = string.ascii_letters + string.digits + '!@#$%*-_+='
+    while True:
+        value = ''.join(secrets.choice(alphabet) for _ in range(length))
+        if (
+            any(c.islower() for c in value)
+            and any(c.isupper() for c in value)
+            and any(c.isdigit() for c in value)
+            and any(c in '!@#$%*-_+=' for c in value)
+        ):
+            return value
+
+
+def _valid_academy_owner(academy):
+    owner_ids = AcademyMembership.objects.filter(
+        academy=academy, role=AcademyMembership.Role.OWNER,
+    ).values_list('user_id', flat=True)
+    return User.objects.filter(pk__in=owner_ids, is_superuser=False).first()
+
+
+@platform_owner_required
+def system_smtp(request):
+    settings_obj = PlatformEmailSettings.load()
+    action = request.POST.get('action') if request.method == 'POST' else ''
+
+    if request.method == 'POST' and action == 'disable':
+        settings_obj.is_enabled = False
+        settings_obj.save(update_fields=['is_enabled', 'updated_at'])
+        log_platform_event(request.user, 'smtp_global_deshabilitado')
+        messages.warning(request, 'SMTP global deshabilitado. Las academias con SMTP propio seguirán funcionando.')
+        return redirect('tenancy:system_smtp')
+
+    form = PlatformSMTPForm(request.POST or None, instance=settings_obj)
+    if request.method == 'POST' and action in {'save', 'test'} and form.is_valid():
+        settings_obj = form.save()
+        log_platform_event(request.user, 'smtp_global_actualizado', metadata={
+            'host': settings_obj.smtp_host, 'port': settings_obj.smtp_port, 'usuario': settings_obj.smtp_username,
+        })
+        if action == 'test':
+            recipient = form.cleaned_data['test_email']
+            try:
+                send_platform_mail(
+                    subject='Prueba SMTP · DevLayer Academy',
+                    message='El SMTP global de DevLayer Academy está configurado correctamente.',
+                    recipients=[recipient],
+                    fail_silently=False,
+                    html_message=(
+                        '<div style="font-family:Arial,sans-serif;color:#172033">'
+                        '<h2>DevLayer Academy · SMTP global</h2>'
+                        '<p>Si recibiste este mensaje, el proveedor predeterminado está funcionando correctamente.</p>'
+                        '</div>'
+                    ),
+                )
+                messages.success(request, f'Configuración guardada y prueba enviada a {recipient}.')
+            except Exception as exc:
+                messages.error(request, f'La configuración se guardó, pero la prueba falló: {exc}')
+        else:
+            messages.success(request, 'SMTP global de DevLayer Studio guardado. Las academias que usen el proveedor predeterminado lo heredarán automáticamente.')
+        return redirect('tenancy:system_smtp')
+
+    return render(request, 'tenancy/system_smtp.html', {
+        'form': form,
+        'smtp_settings': settings_obj,
+        'smtp_ready': platform_mail_available(),
+        'db_smtp_ready': settings_obj.configured,
+    })
+
+
 @platform_owner_required
 def academy_create(request):
     if not AcademyPlan.objects.filter(is_active=True).exists():
@@ -182,16 +283,23 @@ def academy_create(request):
         return redirect('tenancy:plan_create')
     form = AcademyCreateForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
+        owner_existed = User.objects.filter(email=form.cleaned_data['owner_email']).exists()
         academy, owner = form.save()
+        if not owner_existed:
+            _stash_owner_credentials(request, academy, owner, form.cleaned_data['owner_password'])
         log_platform_event(request.user, 'academia_creada', academy, {
             'dueno': owner.email,
             'licencia': academy.license.plan_name,
             'valor': str(academy.license.price),
         })
-        messages.success(
-            request,
-            f'Academia “{academy.name}” creada. El dueño {owner.email} ya puede ingresar y administrar su academia.',
-        )
+        if not owner.email_verified:
+            try:
+                send_verification_email(request, owner, academy)
+                messages.success(request, f'Academia “{academy.name}” creada. Enviamos la verificación a {owner.email}.')
+            except Exception as exc:
+                messages.warning(request, f'Academia creada y dueño asignado, pero el correo de verificación no pudo enviarse: {exc}')
+        else:
+            messages.success(request, f'Academia “{academy.name}” creada. El dueño {owner.email} ya puede ingresar.')
         return redirect('tenancy:academy_detail', academy.id)
     return render(request, 'tenancy/academy_form.html', {
         'form': form,
@@ -207,17 +315,27 @@ def academy_detail(request, academy_id):
     user_map = {str(u.pk): u for u in User.objects.filter(pk__in=[m.user_id for m in memberships], is_superuser=False)}
     user_rows = [{'user': user_map.get(str(m.user_id)), 'membership': m} for m in memberships if user_map.get(str(m.user_id))]
     owner_rows = [row for row in user_rows if row['membership'].role == AcademyMembership.Role.OWNER]
+    invalid_owner_ids = AcademyMembership.objects.filter(
+        academy=academy, role=AcademyMembership.Role.OWNER,
+        user_id__in=User.objects.filter(is_superuser=True).values_list('pk', flat=True),
+    ).values_list('user_id', flat=True)
+    invalid_owner_accounts = list(User.objects.filter(pk__in=invalid_owner_ids))
     courses = Course.objects.filter(pk__in=academy_course_ids(academy)).order_by('-created_at')[:8]
     academy_form = AcademyEditForm(instance=academy)
     license_form = LicenseForm(instance=academy.current_license)
+    owner_credentials = _pop_owner_credentials(request, academy)
     return render(request, 'tenancy/academy_detail.html', {
         'academy': academy,
         'academy_form': academy_form,
         'license_form': license_form,
         'users': user_rows[:20],
         'owners': owner_rows,
+        'invalid_owner_accounts': invalid_owner_accounts,
+        'owner_credentials': owner_credentials,
+        'academy_login_url': reverse('tenancy:academy_login', args=[academy.slug]),
         'courses': courses,
         'usage': academy_license_usage(academy),
+        'platform_mail_ready': platform_mail_available(),
     })
 
 
@@ -291,6 +409,7 @@ def academy_superadmin_create(request, academy_id):
     academy = get_object_or_404(Academy, pk=academy_id)
     current_owner = User.objects.filter(
         pk__in=academy_user_ids(academy, roles=[AcademyMembership.Role.OWNER]),
+        is_superuser=False,
     ).first()
     if current_owner:
         messages.info(request, f'Esta academia ya tiene un dueño: {current_owner.email}.')
@@ -298,15 +417,55 @@ def academy_superadmin_create(request, academy_id):
 
     form = AcademyOwnerForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
+        existed = User.objects.filter(email=form.cleaned_data['email']).exists()
         user = form.save(academy)
+        if not existed:
+            _stash_owner_credentials(request, academy, user, form.cleaned_data['password'])
         log_platform_event(request.user, 'dueno_academia_creado', academy, {'email': user.email})
-        messages.success(request, f'Dueño de academia {user.email} creado.')
+        if not user.email_verified:
+            try:
+                send_verification_email(request, user, academy)
+                messages.success(request, f'Dueño {user.email} creado y correo de verificación enviado.')
+            except Exception as exc:
+                messages.warning(request, f'Dueño creado, pero no se pudo enviar la verificación: {exc}')
+        else:
+            messages.success(request, f'Dueño de academia {user.email} creado.')
         return redirect('tenancy:academy_detail', academy.id)
     return render(request, 'tenancy/academy_form.html', {
         'form': form,
         'title': 'Crear dueño de academia',
         'subtitle': academy.name,
     })
+
+
+@platform_owner_required
+def academy_owner_action(request, academy_id):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    if request.method != 'POST':
+        return redirect('tenancy:academy_detail', academy.id)
+    owner = _valid_academy_owner(academy)
+    if not owner:
+        messages.error(request, 'Primero asigna un dueño válido a esta academia.')
+        return redirect('tenancy:academy_detail', academy.id)
+
+    action = request.POST.get('action')
+    if action == 'resend_verification':
+        if owner.email_verified:
+            messages.info(request, 'El correo del dueño ya está verificado.')
+        else:
+            try:
+                send_verification_email(request, owner, academy)
+                messages.success(request, f'Verificación reenviada a {owner.email}.')
+            except Exception as exc:
+                messages.error(request, f'No se pudo enviar la verificación: {exc}')
+    elif action == 'reset_password':
+        password = _strong_temp_password()
+        owner.set_password(password)
+        owner.save(update_fields=['password', 'updated_at'])
+        _stash_owner_credentials(request, academy, owner, password)
+        log_platform_event(request.user, 'dueno_password_temporal_generado', academy, {'email': owner.email})
+        messages.success(request, 'Nueva contraseña temporal generada. Se mostrará una sola vez en esta pantalla.')
+    return redirect('tenancy:academy_detail', academy.id)
 
 
 def membership_pending(request, slug):
@@ -404,6 +563,10 @@ def academy_public_home(request, slug):
 def academy_public_course(request, slug, course_slug):
     academy = get_object_or_404(Academy.objects.select_related('license'), slug=slug, is_active=True)
     request.academy = academy
+    # Un estudiante autenticado nunca debe caer nuevamente en la experiencia
+    # pública de registro/ingreso al abrir un curso desde su panel.
+    if request.user.is_authenticated and getattr(request, 'academy_role', '') == AcademyMembership.Role.STUDENT:
+        return redirect('catalog:course_detail', slug=course_slug)
     if not academy.access_enabled:
         return render(request, 'tenancy/license_blocked.html', {'academy': academy, 'public_view': True}, status=403)
     request.session['academy_slug'] = academy.slug

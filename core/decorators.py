@@ -71,9 +71,6 @@ def professor_required(view_func):
         }:
             messages.error(request, 'No tienes permiso para acceder a esta sección.')
             return redirect('learning:dashboard')
-        if not request.user.email_verified and not membership.email_verification_bypassed:
-            messages.warning(request, 'Verifica tu correo antes de utilizar el panel del profesor o solicita autorización al dueño de la academia.')
-            return redirect('tenancy:membership_pending', slug=academy.slug)
         return view_func(request, *args, **kwargs)
     return wrapped
 

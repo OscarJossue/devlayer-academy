@@ -1,5 +1,6 @@
 from openpyxl import load_workbook
 from django.db import transaction
+from django.db.models import F
 
 from .models import Choice, Question
 
@@ -20,6 +21,11 @@ TYPE_MAP = {
     'seleccion_multiple': Question.Type.MULTIPLE,
     'selección_múltiple': Question.Type.MULTIPLE,
 }
+
+# Las preguntas del XLSX más reciente permanecen por debajo de este valor.
+# Al confirmar un nuevo XLSX, el lote anterior se mueve al banco histórico del
+# MISMO quiz/módulo. Así nunca se copian preguntas entre módulos o cursos.
+QUESTION_BANK_ARCHIVE_OFFSET = 1_000_000
 
 
 def question_type_label(value):
@@ -104,9 +110,21 @@ def read_question_xlsx(upload):
 
 @transaction.atomic
 def import_question_rows(quiz, rows):
+    """Importa un nuevo lote prioritario al banco aislado de este quiz.
+
+    Todas las preguntas que ya estaban en el quiz pasan a ser banco histórico
+    sumando un offset al orden. Las nuevas quedan con orden 1..N, por lo que
+    services.py puede priorizarlas sin mezclar bancos de otros módulos/cursos.
+    """
     created = 0
     errors = []
-    next_order = quiz.questions.count() + 1
+
+    # Archivar el lote prioritario anterior dentro de ESTE MISMO banco.
+    quiz.questions.filter(order__lt=QUESTION_BANK_ARCHIVE_OFFSET).update(
+        order=F('order') + QUESTION_BANK_ARCHIVE_OFFSET
+    )
+
+    next_order = 1
     for row in rows:
         qtype = row.get('tipo')
         text = str(row.get('pregunta') or '').strip()
@@ -148,28 +166,3 @@ def import_question_rows(quiz, rows):
             )
         created += 1
     return created, errors
-
-
-@transaction.atomic
-def reuse_questions(target_quiz, source_questions):
-    copied = 0
-    order = target_quiz.questions.count() + 1
-    for source in source_questions.filter(question_type__in=ALLOWED_TYPES).prefetch_related('choices'):
-        question = Question.objects.create(
-            quiz=target_quiz,
-            text=source.text,
-            question_type=source.question_type,
-            explanation=source.explanation,
-            is_active=True,
-            order=order,
-        )
-        order += 1
-        for choice in source.choices.all():
-            Choice.objects.create(
-                question=question,
-                text=choice.text,
-                is_correct=choice.is_correct,
-                order=choice.order,
-            )
-        copied += 1
-    return copied

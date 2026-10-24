@@ -85,6 +85,7 @@ class SuperadminUserCreationForm(forms.Form):
 class CategoryForm(forms.ModelForm):
     def __init__(self, *args, academy=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.academy = academy
         self.fields['parent'].queryset = scope_categories(Category.objects.all(), academy) if academy else Category.objects.none()
 
     class Meta:
@@ -96,6 +97,14 @@ class CategoryForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'placeholder': 'Descripción breve para organizar el catálogo', 'rows': 3}),
             'order': forms.NumberInput(attrs={'min': 0, 'placeholder': '0'}),
         }
+
+    def clean_name(self):
+        name = ' '.join((self.cleaned_data.get('name') or '').split()).strip()
+        if not name:
+            return name
+        if self.academy and scope_categories(Category.objects.all(), self.academy).filter(name__iexact=name).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError('Ya existe una categoría con este nombre en la academia.')
+        return name
 
 
 class BankAccountForm(forms.ModelForm):
@@ -219,40 +228,159 @@ class AcademyBrandingForm(forms.ModelForm):
         return value
 
 
+class AcademySupportSettingsForm(forms.ModelForm):
+    class Meta:
+        model = Academy
+        fields = (
+            'support_title',
+            'support_whatsapp_1_label', 'support_whatsapp_1_number',
+            'support_whatsapp_2_label', 'support_whatsapp_2_number',
+        )
+        labels = {
+            'support_title': 'Nombre del panel de soporte',
+            'support_whatsapp_1_label': 'Etiqueta del contacto 1',
+            'support_whatsapp_1_number': 'Número de WhatsApp 1',
+            'support_whatsapp_2_label': 'Etiqueta del contacto 2',
+            'support_whatsapp_2_number': 'Número de WhatsApp 2',
+        }
+        widgets = {
+            'support_title': forms.TextInput(attrs={'placeholder': 'Ej. Soporte Academia Horizonte'}),
+            'support_whatsapp_1_label': forms.TextInput(attrs={'placeholder': 'Ej. Soporte técnico'}),
+            'support_whatsapp_1_number': forms.TextInput(attrs={'placeholder': '593999999999'}),
+            'support_whatsapp_2_label': forms.TextInput(attrs={'placeholder': 'Ej. Contabilidad'}),
+            'support_whatsapp_2_number': forms.TextInput(attrs={'placeholder': '593988888888'}),
+        }
+        help_texts = {
+            'support_title': 'Este texto lo verán estudiantes y profesores encima de los contactos de WhatsApp.',
+            'support_whatsapp_1_number': 'Código de país + número, sin +, espacios ni guiones.',
+            'support_whatsapp_2_number': 'Opcional. Código de país + número, sin +, espacios ni guiones.',
+        }
+
+    def _clean_number(self, field_name):
+        value = ''.join(ch for ch in (self.cleaned_data.get(field_name) or '') if ch.isdigit())
+        if value and len(value) < 8:
+            raise forms.ValidationError('Ingresa un número de WhatsApp válido con código de país.')
+        return value
+
+    def clean_support_whatsapp_1_number(self):
+        return self._clean_number('support_whatsapp_1_number')
+
+    def clean_support_whatsapp_2_number(self):
+        return self._clean_number('support_whatsapp_2_number')
+
+    def clean(self):
+        cleaned = super().clean()
+        for index in (1, 2):
+            number = cleaned.get(f'support_whatsapp_{index}_number')
+            label = (cleaned.get(f'support_whatsapp_{index}_label') or '').strip()
+            if number and not label:
+                cleaned[f'support_whatsapp_{index}_label'] = 'Soporte' if index == 1 else 'Atención'
+            if label and not number:
+                self.add_error(f'support_whatsapp_{index}_number', 'Ingresa el número correspondiente a esta etiqueta.')
+        if not (cleaned.get('support_title') or '').strip():
+            cleaned['support_title'] = 'Soporte de la academia'
+        return cleaned
+
+
 class AcademyPaymentSettingsForm(forms.ModelForm):
     class Meta:
         model = Academy
         fields = (
-            'payment_transfer_enabled', 'payment_whatsapp_enabled',
-            'payment_whatsapp_number', 'payment_instructions',
+            'payment_transfer_enabled',
+            'payment_paypal_enabled', 'payment_paypal_email', 'payment_paypal_url',
+            'payment_payphone_enabled', 'payment_payphone_reference', 'payment_payphone_url',
+            'payment_card_enabled', 'payment_card_instructions',
+            'payment_link_1_enabled', 'payment_link_1_label', 'payment_link_1_url',
+            'payment_link_2_enabled', 'payment_link_2_label', 'payment_link_2_url',
+            'payment_whatsapp_enabled', 'payment_whatsapp_number',
+            'payment_instructions',
         )
         labels = {
             'payment_transfer_enabled': 'Aceptar transferencias bancarias',
-            'payment_whatsapp_enabled': 'Permitir reporte de pago por WhatsApp',
+            'payment_paypal_enabled': 'Aceptar PayPal',
+            'payment_paypal_email': 'Correo / cuenta de PayPal',
+            'payment_paypal_url': 'Enlace de PayPal',
+            'payment_payphone_enabled': 'Aceptar PayPhone',
+            'payment_payphone_reference': 'Número o referencia de PayPhone',
+            'payment_payphone_url': 'Enlace de PayPhone',
+            'payment_card_enabled': 'Aceptar tarjeta mediante link por WhatsApp',
+            'payment_card_instructions': 'Indicaciones para tarjeta',
+            'payment_link_1_enabled': 'Habilitar link de pago 1',
+            'payment_link_1_label': 'Nombre del link 1',
+            'payment_link_1_url': 'URL del link 1',
+            'payment_link_2_enabled': 'Habilitar link de pago 2',
+            'payment_link_2_label': 'Nombre del link 2',
+            'payment_link_2_url': 'URL del link 2',
+            'payment_whatsapp_enabled': 'Mostrar WhatsApp para pagos y comprobantes',
             'payment_whatsapp_number': 'Número de WhatsApp para pagos',
             'payment_instructions': 'Indicaciones generales de pago',
         }
         widgets = {
+            'payment_paypal_email': forms.EmailInput(attrs={'placeholder': 'pagos@academia.com'}),
+            'payment_paypal_url': forms.URLInput(attrs={'placeholder': 'https://paypal.me/...'}),
+            'payment_payphone_reference': forms.TextInput(attrs={'placeholder': 'Ej. 0987654321 o cuenta PayPhone'}),
+            'payment_payphone_url': forms.URLInput(attrs={'placeholder': 'https://payphone.app/...'}),
+            'payment_card_instructions': forms.TextInput(attrs={'placeholder': 'Solicita tu link de pago por WhatsApp.'}),
+            'payment_link_1_label': forms.TextInput(attrs={'placeholder': 'Ej. Link de pago Produbanco'}),
+            'payment_link_1_url': forms.URLInput(attrs={'placeholder': 'https://...'}),
+            'payment_link_2_label': forms.TextInput(attrs={'placeholder': 'Ej. Link de pago alternativo'}),
+            'payment_link_2_url': forms.URLInput(attrs={'placeholder': 'https://...'}),
             'payment_whatsapp_number': forms.TextInput(attrs={'placeholder': '593999999999'}),
             'payment_instructions': forms.Textarea(attrs={
                 'rows': 3,
-                'placeholder': 'Ej. Coloca el número de orden en la referencia de la transferencia.',
+                'placeholder': 'Ej. Coloca el número de orden en la referencia de tu pago.',
             }),
         }
         help_texts = {
-            'payment_whatsapp_number': 'Código de país + número, sin +, espacios ni guiones.',
+            'payment_whatsapp_number': 'Código de país + número, sin +, espacios ni guiones. Si se deja vacío, se usa un contacto de soporte de la academia.',
+            'payment_card_enabled': 'El estudiante verá un botón para solicitar por WhatsApp un link seguro de pago con tarjeta.',
         }
 
+    @staticmethod
+    def _digits(value):
+        return ''.join(ch for ch in (value or '') if ch.isdigit())
+
     def clean_payment_whatsapp_number(self):
-        value = ''.join(ch for ch in (self.cleaned_data.get('payment_whatsapp_number') or '') if ch.isdigit())
-        if self.cleaned_data.get('payment_whatsapp_enabled') and not value:
-            raise forms.ValidationError('Ingresa el número de WhatsApp si habilitas este método.')
+        value = self._digits(self.cleaned_data.get('payment_whatsapp_number'))
+        if value and len(value) < 8:
+            raise forms.ValidationError('Ingresa un número de WhatsApp válido con código de país.')
         return value
 
     def clean(self):
         cleaned = super().clean()
-        if not cleaned.get('payment_transfer_enabled') and not cleaned.get('payment_whatsapp_enabled'):
+        enabled = [
+            cleaned.get('payment_transfer_enabled'), cleaned.get('payment_paypal_enabled'),
+            cleaned.get('payment_payphone_enabled'), cleaned.get('payment_card_enabled'),
+            cleaned.get('payment_link_1_enabled'), cleaned.get('payment_link_2_enabled'),
+            cleaned.get('payment_whatsapp_enabled'),
+        ]
+        if not any(enabled):
             raise forms.ValidationError('Habilita al menos un método de pago para los cursos de pago.')
+
+        if cleaned.get('payment_paypal_enabled') and not (cleaned.get('payment_paypal_email') or cleaned.get('payment_paypal_url')):
+            self.add_error('payment_paypal_email', 'Configura un correo o un enlace de PayPal.')
+        if cleaned.get('payment_payphone_enabled') and not (cleaned.get('payment_payphone_reference') or cleaned.get('payment_payphone_url')):
+            self.add_error('payment_payphone_reference', 'Configura una referencia o un enlace de PayPhone.')
+
+        for index in (1, 2):
+            enabled_field = f'payment_link_{index}_enabled'
+            label_field = f'payment_link_{index}_label'
+            url_field = f'payment_link_{index}_url'
+            if cleaned.get(enabled_field):
+                if not (cleaned.get(label_field) or '').strip():
+                    self.add_error(label_field, 'Pon un nombre para identificar este link de pago.')
+                if not cleaned.get(url_field):
+                    self.add_error(url_field, 'Ingresa la URL del link de pago.')
+
+        if cleaned.get('payment_card_enabled'):
+            has_whatsapp = bool(
+                self._digits(cleaned.get('payment_whatsapp_number'))
+                or self._digits(getattr(self.instance, 'support_whatsapp_1_number', ''))
+                or self._digits(getattr(self.instance, 'support_whatsapp_2_number', ''))
+            )
+            if not has_whatsapp:
+                self.add_error('payment_whatsapp_number', 'Para cobrar con tarjeta por link necesitas un WhatsApp de pagos o un contacto de soporte configurado.')
+
         return cleaned
 
 

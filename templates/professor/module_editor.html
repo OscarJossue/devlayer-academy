@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ module.title }} · {{ course.title }}{% endblock %}
+{% block content %}
+<div class="page-heading professor-page-heading module-editor-heading">
+  <div class="page-heading-copy">
+    <span class="eyebrow">MÓDULO {{ module.order|stringformat:'02d' }} · {{ course.title }}</span>
+    <h1>{{ module.title }}</h1>
+    <p>Configura este módulo completo aquí: estructura, secciones de Video / PDF / Indicaciones y su cuestionario. Cuando termines, vuelve al curso y continúa con el siguiente módulo.</p>
+  </div>
+  <div class="page-actions professor-toolbar">
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' course.id %}">← Volver al curso</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_student_preview' course.id %}?module={{ module.id }}">Vista estudiante</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_students' course.id %}">Estudiantes</a>
+  </div>
+</div>
+
+<div class="module-editor-summary">
+  <article><span class="module-editor-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ lessons|length }}</strong><span>Secciones</span></div></article>
+  <article><span class="module-editor-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><div><strong>{% if module_quiz %}1{% else %}0{% endif %}</strong><span>Cuestionario</span></div></article>
+  <article><span class="module-editor-stat-icon"><svg><use href="{% static 'icons/sprite.svg' %}#check-circle"></use></svg></span><div><strong>{% if module.requires_quiz_to_unlock_next %}Sí{% else %}No{% endif %}</strong><span>Evaluación requerida</span></div></article>
+</div>
+
+<section class="panel module-identity-panel">
+  <div class="section-head"><div><span class="eyebrow">1 · INFORMACIÓN DEL MÓDULO</span><h2>Objetivo y comportamiento</h2><p>Esta información identifica el módulo dentro de la ruta del estudiante.</p></div></div>
+  <form method="post" class="form-stack module-settings-form">{% csrf_token %}<input type="hidden" name="action" value="save_module">{% include 'partials/form_fields.html' with form=module_form %}<button class="btn btn-secondary" type="submit">Guardar información del módulo</button></form>
+</section>
+
+<section class="panel module-sections-panel">
+  <div class="section-head module-editor-section-head">
+    <div><span class="eyebrow">2 · CONTENIDO</span><h2>Secciones del módulo</h2><p>Construye una secuencia clara. Cada bloque tiene un tipo principal para evitar formularios confusos o contenido duplicado.</p></div>
+    <a class="btn btn-secondary btn-small" href="#section-editor">+ Nueva sección</a>
+  </div>
+
+  <div class="module-section-list">
+    {% for lesson in lessons %}
+    <article class="module-section-card {% if editing_lesson.id == lesson.id %}is-editing{% endif %}">
+      <div class="module-section-order">{{ lesson.order|stringformat:'02d' }}</div>
+      <div class="module-section-icon {% if lesson.video_source %}is-video{% elif lesson.material_pdf %}is-pdf{% else %}is-note{% endif %}">
+        {% if lesson.video_source %}<span>▶</span>{% elif lesson.material_pdf %}<span>PDF</span>{% else %}<span>TXT</span>{% endif %}
+      </div>
+      <div class="module-section-copy">
+        <div class="module-section-title"><span class="section-type-pill">{{ lesson.section_type_label }}</span><strong>{{ lesson.title }}</strong></div>
+        <p>{% if lesson.description %}{{ lesson.description|truncatechars:145 }}{% elif lesson.video_source %}Video configurado para esta etapa del módulo.{% elif lesson.material_pdf %}Documento PDF disponible para lectura dentro del curso.{% else %}Sección de indicaciones.{% endif %}</p>
+        <div class="module-section-meta">{% if lesson.duration_minutes %}<span>{{ lesson.duration_minutes }} min</span>{% endif %}{% if lesson.video_source %}<span>Video protegido</span>{% endif %}{% if lesson.material_pdf %}<span>PDF protegido</span>{% endif %}<span>{% if lesson.is_published %}Visible{% else %}Oculta{% endif %}</span></div>
+      </div>
+      <div class="module-section-actions">
+        <div class="section-order-actions">
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="move_up"><input type="hidden" name="lesson_id" value="{{ lesson.id }}"><button type="submit" title="Subir sección" {% if forloop.first %}disabled{% endif %}>↑</button></form>
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="move_down"><input type="hidden" name="lesson_id" value="{{ lesson.id }}"><button type="submit" title="Bajar sección" {% if forloop.last %}disabled{% endif %}>↓</button></form>
+        </div>
+        <a class="sa-action" href="?editar={{ lesson.id }}#section-editor">Editar</a>
+        <form method="post" onsubmit="return confirm('¿Eliminar esta sección del módulo?');">{% csrf_token %}<input type="hidden" name="action" value="delete_section"><input type="hidden" name="lesson_id" value="{{ lesson.id }}"><button class="sa-action danger" type="submit">Eliminar</button></form>
+      </div>
+    </article>
+    {% empty %}
+    <div class="empty module-empty-state"><strong>Este módulo todavía no tiene contenido</strong><span>Agrega la primera sección y selecciona si será Video, PDF o Indicaciones.</span></div>
+    {% endfor %}
+  </div>
+
+  <div class="module-section-editor" id="section-editor" data-module-section-editor>
+    <div class="module-section-editor-head">
+      <div><span class="eyebrow">{% if editing_lesson %}EDITAR SECCIÓN {{ editing_lesson.order|stringformat:'02d' }}{% else %}NUEVA SECCIÓN{% endif %}</span><h3>{% if editing_lesson %}{{ editing_lesson.title }}{% else %}Agregar contenido al módulo{% endif %}</h3><p>Selecciona un tipo y completa solo la información necesaria.</p></div>
+      {% if editing_lesson %}<a class="sa-action" href="{% url 'catalog:professor_module_editor' module.id %}#section-editor">Cancelar edición</a>{% endif %}
+    </div>
+    <form method="post" enctype="multipart/form-data" class="form-stack module-section-form">{% csrf_token %}
+      <input type="hidden" name="action" value="save_section">
+      {% if editing_lesson %}<input type="hidden" name="lesson_id" value="{{ editing_lesson.id }}">{% endif %}
+      <div class="section-type-field form-field"><label for="{{ section_form.section_type.id_for_label }}">{{ section_form.section_type.label }}</label>{{ section_form.section_type }}{% if section_form.section_type.help_text %}<div class="field-help">{{ section_form.section_type.help_text }}</div>{% endif %}{% for error in section_form.section_type.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+      <div class="module-section-fields-grid">
+        <div class="form-field section-field-title"><label for="{{ section_form.title.id_for_label }}">{{ section_form.title.label }}</label>{{ section_form.title }}{% for error in section_form.title.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+        <div class="form-field" data-section-field="duration"><label for="{{ section_form.duration_minutes.id_for_label }}">{{ section_form.duration_minutes.label }}</label>{{ section_form.duration_minutes }}{% if section_form.duration_minutes.help_text %}<div class="field-help">{{ section_form.duration_minutes.help_text }}</div>{% endif %}{% for error in section_form.duration_minutes.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+      </div>
+      <div class="form-field" data-section-field="video"><label for="{{ section_form.video_source.id_for_label }}">{{ section_form.video_source.label }}</label>{{ section_form.video_source }}{% if section_form.video_source.help_text %}<div class="field-help">{{ section_form.video_source.help_text }}</div>{% endif %}{% for error in section_form.video_source.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+      <div class="form-field" data-section-field="pdf"><label for="{{ section_form.material_pdf.id_for_label }}">{{ section_form.material_pdf.label }}</label>{{ section_form.material_pdf }}{% if section_form.material_pdf.help_text %}<div class="field-help">{{ section_form.material_pdf.help_text }}</div>{% endif %}{% for error in section_form.material_pdf.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+      <div class="form-field" data-section-field="instructions"><label for="{{ section_form.description.id_for_label }}">{{ section_form.description.label }}</label>{{ section_form.description }}{% if section_form.description.help_text %}<div class="field-help">{{ section_form.description.help_text }}</div>{% endif %}{% for error in section_form.description.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+      {% if section_form.non_field_errors %}<div class="field-error">{{ section_form.non_field_errors }}</div>{% endif %}
+      <div class="page-actions"><button class="btn" type="submit">{% if editing_lesson %}Guardar cambios{% else %}Agregar sección{% endif %}</button>{% if editing_lesson %}<a class="btn btn-secondary" href="{% url 'catalog:professor_module_editor' module.id %}">Cancelar</a>{% endif %}</div>
+    </form>
+  </div>
+</section>
+
+<section class="panel module-quiz-panel">
+  <div class="section-head"><div><span class="eyebrow">3 · EVALUACIÓN DEL MÓDULO</span><h2>Cuestionario</h2><p>La evaluación de este módulo se configura una sola vez y su banco de preguntas se importa desde XLSX.</p></div></div>
+  {% if module_quiz %}
+  <div class="module-quiz-config-card">
+    <div class="module-quiz-config-main"><span class="sa-status {% if module_quiz.is_active %}ok{% else %}warn{% endif %}">{% if module_quiz.is_active %}Publicado{% else %}Borrador / pausado{% endif %}</span><div><strong>{{ module_quiz.title }}</strong><span>{{ module_quiz.questions.count }} preguntas en banco · {{ module_quiz.question_count }} por intento · mínimo {{ module_quiz.required_score }}%</span></div></div>
+    <a class="btn btn-secondary" href="{% url 'assessments:professor_import_questions' module_quiz.id %}">Configurar + importar XLSX</a>
+  </div>
+  {% else %}
+  <div class="module-quiz-empty-state"><div><strong>Cuestionario aún no creado</strong><span>Créalo cuando el contenido del módulo esté listo.</span></div><a class="btn" href="{% url 'assessments:professor_quiz_create' course.id %}?module={{ module.id }}">Crear cuestionario</a></div>
+  {% endif %}
+</section>
+
+<div class="module-editor-finish">
+  <div><strong>¿Terminaste este módulo?</strong><span>Vuelve al curso para crear el siguiente módulo o continuar con el examen final.</span></div>
+  <a class="btn" href="{% url 'catalog:professor_course_edit' course.id %}">Guardar flujo y volver al curso</a>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(function(){
+  const root=document.querySelector('[data-module-section-editor]');
+  if(!root)return;
+  const type=document.getElementById('id_section-section_type');
+  const groups={video:root.querySelector('[data-section-field="video"]'),pdf:root.querySelector('[data-section-field="pdf"]'),instructions:root.querySelector('[data-section-field="instructions"]'),duration:root.querySelector('[data-section-field="duration"]')};
+  function refresh(){
+    const value=type?type.value:'VIDEO';
+    if(groups.video)groups.video.style.display=value==='VIDEO'?'grid':'none';
+    if(groups.pdf)groups.pdf.style.display=value==='PDF'?'grid':'none';
+    if(groups.instructions)groups.instructions.style.display='grid';
+    if(groups.duration)groups.duration.style.display=value==='INSTRUCTIONS'?'none':'grid';
+    const description=groups.instructions&&groups.instructions.querySelector('label');
+    if(description)description.textContent=value==='INSTRUCTIONS'?'Indicaciones para el estudiante':'Nota de apoyo (opcional)';
+  }
+  if(type)type.addEventListener('change',refresh);
+  refresh();
+})();
+</script>
+{% endblock %}

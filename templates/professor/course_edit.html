@@ -2,62 +2,55 @@
 {% load static %}
 {% block title %}Administrar {{ course.title }} · Devlayer Academy{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <div class="page-heading-copy"><span class="eyebrow">{{ course.get_status_display }}</span><h1>{{ course.title }}</h1><p>Carga contenido rápido y usa los ajustes avanzados solo cuando los necesites.</p></div>
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">{{ course.get_status_display }}</span><h1>{{ course.title }}</h1><p>Construye el curso módulo por módulo. Cada bloque concentra su contenido, indicaciones y cuestionario para evitar configuraciones mezcladas.</p></div>
   <div class="page-actions professor-toolbar">
-    <a class="btn btn-secondary btn-small" href="{{ course.get_absolute_url }}">Vista estudiante</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_courses' %}">Mis cursos</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_student_preview' course.id %}">Vista estudiante</a>
     <form method="post" action="{% url 'catalog:professor_submit_review' course.id %}">{% csrf_token %}<button class="btn btn-small" type="submit">Enviar a revisión</button></form>
   </div>
 </div>
 
-<section class="panel professor-fast-panel">
-  <div class="builder-title"><div><span class="eyebrow">CARGA RÁPIDA</span><h2>Construye el curso sin complicaciones</h2><p>Academy completa orden, publicación y valores recomendados automáticamente.</p></div></div>
+<section class="panel professor-fast-panel professor-course-command">
+  <div class="builder-title"><div><span class="eyebrow">CONSTRUCCIÓN DEL CURSO</span><h2>Trabaja una etapa a la vez</h2><p>Crea un módulo, carga sus videos/PDF/indicaciones, agrega su cuestionario e importa el XLSX de preguntas. Después continúa con el siguiente módulo.</p></div></div>
   <div class="professor-fast-actions">
-    <a class="btn" href="{% url 'catalog:professor_module_create' course.id %}">+ Nuevo módulo</a>
-    <a class="btn btn-secondary" href="{% url 'catalog:professor_import_content' course.id %}">Importar estructura XLSX</a>
-    <a class="btn btn-secondary" href="{% url 'assessments:professor_quiz_create' course.id %}">+ Cuestionario / examen</a>
-    <a class="btn btn-secondary" href="{% url 'catalog:professor_students' course.id %}">Ver progreso</a>
+    <a class="btn" href="{% url 'catalog:professor_module_create' course.id %}"><svg width="18" height="18"><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Nuevo módulo</a>
+    <a class="btn btn-secondary" href="{% url 'catalog:professor_students' course.id %}"><svg width="18" height="18"><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg>Estudiantes y notas</a>
   </div>
-  <div class="professor-fast-note"><strong>Para una clase nueva:</strong> título + enlace de YouTube + PDF. Academy comprime el PDF automáticamente, conserva su diseño completo y coloca la clase al final del módulo.</div>
 </section>
 
 <section class="panel builder-panel professor-content-panel">
-  <div class="builder-title"><div><span class="eyebrow">CONTENIDO</span><h2>Módulos, videos, PDFs y cuestionarios</h2></div><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_module_create' course.id %}">Añadir módulo</a></div>
+  <div class="builder-title">
+    <div><span class="eyebrow">CONTENIDO</span><h2>Ruta modular del curso</h2><p>Cada módulo tiene su propio espacio de trabajo. Entra, configura sus secciones y cuestionario, y vuelve aquí cuando esté terminado.</p></div>
+    <a class="btn module-create-button" href="{% url 'catalog:professor_module_create' course.id %}"><svg width="17" height="17"><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Crear módulo</a>
+  </div>
+  <div class="module-route-list">
   {% for module in course.modules.all %}
-    <article class="module-block module-block-simple">
-      <div class="module-title"><div><strong>Módulo {{ module.order }} · {{ module.title }}</strong><small>{{ module.description|default:'Sin descripción'|truncatechars:120 }}</small></div><a class="btn btn-small" href="{% url 'catalog:professor_lesson_create' module.id %}">+ Video / PDF</a></div>
-      <div class="module-lesson-list">
-        {% for lesson in module.lessons.all %}
-          <div class="row-item"><span><b>{{ lesson.order }}.</b> {{ lesson.title }}</span><small>{{ lesson.duration_minutes }} min{% if lesson.video_source %} · Video{% endif %}{% if lesson.material_pdf %} · PDF{% endif %}</small></div>
-        {% empty %}<div class="empty compact-empty">Todavía no hay clases. Usa “+ Video / PDF”.</div>{% endfor %}
+    <a class="module-route-card" href="{% url 'catalog:professor_module_editor' module.id %}">
+      <span class="module-route-number">{{ module.order|stringformat:'02d' }}</span>
+      <div class="module-route-copy">
+        <div class="module-route-title"><strong>{{ module.title }}</strong><span class="sa-status {% if module.is_published %}ok{% else %}warn{% endif %}">{% if module.is_published %}Activo{% else %}Borrador{% endif %}</span></div>
+        <p>{{ module.description|default:'Configura el objetivo y el contenido de este módulo.'|truncatechars:150 }}</p>
+        <div class="module-route-meta"><span><b>{{ module.lessons.count }}</b> secciones</span><span><b>{{ module.quizzes.count }}</b> cuestionario{{ module.quizzes.count|pluralize }}</span><span>{% if module.requires_quiz_to_unlock_next %}Evaluación requerida{% else %}Evaluación opcional{% endif %}</span></div>
       </div>
-      {% for quiz in module.quizzes.all %}
-        <div class="quiz-quick-card">
-          <div class="quiz-quick-copy"><strong>{{ quiz.title }}</strong><span>{{ quiz.questions.count }} preguntas · mínimo {{ quiz.required_score }}%</span></div>
-          <form method="post" action="{% url 'assessments:professor_quiz_quick_settings' quiz.id %}" class="quiz-quick-form">{% csrf_token %}
-            <label class="quick-toggle"><input type="checkbox" name="show_correct_answers" {% if quiz.show_correct_answers %}checked{% endif %}><span>Mostrar respuestas</span></label>
-            <label><span>Intentos</span><select name="attempt_limit"><option value="0" {% if quiz.max_attempts == 0 %}selected{% endif %}>Ilimitados</option><option value="1" {% if quiz.max_attempts == 1 %}selected{% endif %}>1</option><option value="2" {% if quiz.max_attempts == 2 %}selected{% endif %}>2</option><option value="3" {% if quiz.max_attempts == 3 %}selected{% endif %}>3</option><option value="5" {% if quiz.max_attempts == 5 %}selected{% endif %}>5</option></select></label>
-            <button class="btn btn-small" type="submit">Guardar</button>
-            <a class="btn btn-secondary btn-small" href="{% url 'assessments:professor_import_questions' quiz.id %}">Preguntas</a>
-          </form>
-        </div>
-      {% empty %}<div class="quiz-empty-inline"><span>Sin cuestionario en este módulo.</span></div>{% endfor %}
-    </article>
-  {% empty %}<div class="empty">Todavía no hay módulos. Crea el primero en menos de un minuto.</div>{% endfor %}
+      <span class="module-route-open">Configurar módulo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </a>
+  {% empty %}
+    <div class="empty module-empty-state"><strong>Aún no hay módulos</strong><span>Crea el primero y complétalo antes de avanzar al siguiente.</span><a class="btn btn-small" href="{% url 'catalog:professor_module_create' course.id %}">Crear primer módulo</a></div>
+  {% endfor %}
+  </div>
 </section>
 
-<section class="panel builder-panel">
-  <div class="builder-title"><div><span class="eyebrow">CIERRE ACADÉMICO</span><h2>Examen final</h2></div><a class="btn btn-secondary btn-small" href="{% url 'assessments:professor_quiz_create' course.id %}">Configurar evaluación</a></div>
-  {% for quiz in course.quizzes.all %}{% if quiz.kind == 'FINAL' %}
-    <div class="quiz-quick-card">
-      <div class="quiz-quick-copy"><strong>{{ quiz.title }}</strong><span>{{ quiz.question_count }} preguntas por intento · mínimo {{ quiz.required_score }}%</span></div>
-      <form method="post" action="{% url 'assessments:professor_quiz_quick_settings' quiz.id %}" class="quiz-quick-form">{% csrf_token %}
-        <label class="quick-toggle"><input type="checkbox" name="show_correct_answers" {% if quiz.show_correct_answers %}checked{% endif %}><span>Mostrar respuestas</span></label>
-        <label><span>Intentos</span><select name="attempt_limit"><option value="0" {% if quiz.max_attempts == 0 %}selected{% endif %}>Ilimitados</option><option value="1" {% if quiz.max_attempts == 1 %}selected{% endif %}>1</option><option value="2" {% if quiz.max_attempts == 2 %}selected{% endif %}>2</option><option value="3" {% if quiz.max_attempts == 3 %}selected{% endif %}>3</option><option value="5" {% if quiz.max_attempts == 5 %}selected{% endif %}>5</option></select></label>
-        <button class="btn btn-small" type="submit">Guardar</button><a class="btn btn-secondary btn-small" href="{% url 'assessments:professor_import_questions' quiz.id %}">Preguntas</a>
-      </form>
-    </div>
-  {% endif %}{% empty %}<div class="empty compact-empty">Este curso todavía no tiene examen final.</div>{% endfor %}
+<section class="panel builder-panel final-exam-panel">
+  <div class="builder-title"><div><span class="eyebrow">CIERRE ACADÉMICO</span><h2>Examen final</h2><p>El examen final permanece separado de los módulos. Aquí configuras sus parámetros y cargas su XLSX de preguntas.</p></div></div>
+  {% if final_quizzes %}
+    {% for quiz in final_quizzes %}<div class="final-exam-card">
+      <div class="final-exam-main"><span class="sa-status {% if quiz.is_active %}ok{% else %}warn{% endif %}">{% if quiz.is_active %}Publicado{% else %}Borrador / pausado{% endif %}</span><div><strong>{{ quiz.title }}</strong><span>{{ quiz.questions.count }} preguntas en banco · {{ quiz.question_count }} por intento · nota mínima {{ quiz.required_score }}% · {% if quiz.max_attempts == 0 %}intentos ilimitados{% else %}{{ quiz.max_attempts }} intento{{ quiz.max_attempts|pluralize }}{% endif %}</span></div></div>
+      <a class="btn btn-secondary" href="{% url 'assessments:professor_import_questions' quiz.id %}">Configurar examen + importar XLSX</a>
+    </div>{% endfor %}
+  {% else %}
+    <div class="final-exam-create"><div><strong>Examen final aún no creado</strong><span>Créalo cuando hayas terminado de configurar los módulos.</span></div><a class="btn btn-secondary btn-small" href="{% url 'assessments:professor_quiz_create' course.id %}?kind=FINAL">+ Crear examen final</a></div>
+  {% endif %}
 </section>
 
 <section class="panel builder-panel masterclass-config-panel">
@@ -66,25 +59,21 @@
 </section>
 
 <details class="panel builder-panel builder-disclosure">
-  <summary><div><span class="eyebrow">AJUSTES AVANZADOS</span><strong>Datos generales, precio y acceso</strong></div><span>Configurar</span></summary>
+  <summary><div><span class="eyebrow">AJUSTES DEL CURSO</span><strong>Datos generales, precio y acceso</strong></div><span>Configurar</span></summary>
   <div class="disclosure-body"><form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Guardar cambios</button></form></div>
 </details>
 
 <details class="panel builder-panel builder-disclosure certificate-course-panel">
-  <summary><div><span class="eyebrow">CERTIFICACIÓN</span><strong>Certificado del curso</strong></div><span>{% if course.certificate_enabled %}Habilitado{% else %}Sin certificado{% endif %}</span></summary>
+  <summary><div><span class="eyebrow">CERTIFICACIÓN</span><strong>Certificado del curso</strong></div><span>{% if course.certificate_enabled %}Sí{% else %}No{% endif %}</span></summary>
   <div class="disclosure-body">
-    <div class="form-help-card">Puedes usar el diseño de {{ request.academy.name }} o personalizar este curso.</div>
-    <form method="post" enctype="multipart/form-data" class="form-stack certificate-course-form" data-course-certificate-form>{% csrf_token %}<input type="hidden" name="section" value="certificate">
-      <div class="form-field form-field-checkbox"><label for="{{ certificate_form.certificate_enabled.id_for_label }}">{{ certificate_form.certificate_enabled.label }}</label>{{ certificate_form.certificate_enabled }}</div>
-      <div class="form-field"><label for="{{ certificate_form.certificate_style_mode.id_for_label }}">{{ certificate_form.certificate_style_mode.label }}</label>{{ certificate_form.certificate_style_mode }}</div>
-      <div class="certificate-custom-fields" data-certificate-custom-fields><div class="certificate-fields-grid">{% for field in certificate_form %}{% if field.name != 'certificate_enabled' and field.name != 'certificate_style_mode' %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}form-field-checkbox{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="field-help">{{ field.help_text }}</div>{% endif %}</div>{% endif %}{% endfor %}</div></div>
-      <div class="page-actions"><button class="btn" type="submit">Guardar certificado</button>{% if course.certificate_enabled %}<a class="btn btn-secondary" href="{% url 'catalog:professor_certificate_preview' course.id %}" target="_blank">Vista previa PDF</a>{% endif %}</div>
+    <div class="certificate-professor-simple">
+      <div><strong>Elige únicamente si este curso entrega certificado.</strong><p>El dueño de {{ request.academy.name }} controla el diseño, colores, textos, firma, logo y QR desde la configuración de la academia.</p></div>
+      <span class="sa-status {% if course.certificate_enabled %}ok{% else %}warn{% endif %}">{% if course.certificate_enabled %}Certificado habilitado{% else %}Sin certificado{% endif %}</span>
+    </div>
+    <form method="post" class="form-stack certificate-toggle-form">{% csrf_token %}<input type="hidden" name="section" value="certificate">
+      <div class="form-field"><label for="{{ certificate_form.certificate_enabled.id_for_label }}">{{ certificate_form.certificate_enabled.label }}</label>{{ certificate_form.certificate_enabled }}{% if certificate_form.certificate_enabled.help_text %}<div class="field-help">{{ certificate_form.certificate_enabled.help_text }}</div>{% endif %}{% for error in certificate_form.certificate_enabled.errors %}<div class="field-error">{{ error }}</div>{% endfor %}</div>
+      <button class="btn" type="submit">Guardar Sí / No</button>
     </form>
   </div>
 </details>
-{% endblock %}
-{% block extra_scripts %}
-<script>
-(function(){const form=document.querySelector('[data-course-certificate-form]');if(!form)return;const enabled=document.getElementById('id_certificate-certificate_enabled');const mode=document.getElementById('id_certificate-certificate_style_mode');const custom=document.querySelector('[data-certificate-custom-fields]');function refresh(){if(custom)custom.style.display=(enabled&&enabled.checked&&mode&&mode.value==='CUSTOM')?'block':'none';if(mode&&mode.closest('.form-field'))mode.closest('.form-field').style.display=(enabled&&enabled.checked)?'block':'none';}form.addEventListener('change',refresh);refresh();})();
-</script>
 {% endblock %}

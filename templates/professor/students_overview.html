@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Estudiantes y notas · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">ESTUDIANTES Y NOTAS</span><h1>Seguimiento organizado por curso</h1><p>Selecciona primero un curso. Dentro encontrarás únicamente sus estudiantes, progreso, calificaciones y comprobantes, sin mezclar información entre cursos.</p></div>
+</div>
+
+{% if not can_manage_students %}<div class="delegated-permission-note"><strong>Gestión de pagos en solo lectura</strong><span>El dueño puede habilitarte el permiso para aprobar comprobantes y activar estudiantes de tus propios cursos.</span></div>{% endif %}
+
+<section class="panel professor-course-roster-panel">
+  <div class="section-head"><div><span class="eyebrow">MIS CURSOS</span><h2>Elige el curso que deseas revisar</h2><p>Cada fila abre un panel independiente con estudiantes, notas y pagos de ese curso.</p></div></div>
+  <div class="professor-course-roster-list">
+    {% for row in course_rows %}
+    <a class="professor-course-roster-row" href="{% url 'catalog:professor_students' row.course.id %}">
+      <div class="roster-course-cover">
+        {% if row.course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' row.course.id %}" alt="Portada de {{ row.course.title }}">{% else %}<span>{{ row.course.title|slice:':2'|upper }}</span>{% endif %}
+      </div>
+      <div class="roster-course-main">
+        <div class="roster-course-title"><div><span class="badge badge-neutral">{{ row.course.category.name }}</span><strong>{{ row.course.title }}</strong></div><span class="sa-status {% if row.course.status == 'PUBLISHED' or row.course.status == 'APPROVED' %}ok{% else %}warn{% endif %}">{{ row.course.get_status_display }}</span></div>
+        <p>{{ row.course.short_description|default:row.course.description|striptags|truncatechars:130 }}</p>
+        <div class="roster-course-metrics">
+          <span><b>{{ row.students }}</b><small>Estudiantes</small></span>
+          <span><b>{{ row.average_progress }}%</b><small>Progreso medio</small></span>
+          <span><b>{% if row.average_grade != None %}{{ row.average_grade }}%{% else %}—{% endif %}</b><small>Nota media</small></span>
+          <span class="{% if row.pending_payments %}metric-alert{% endif %}"><b>{{ row.pending_payments }}</b><small>Pagos pendientes</small></span>
+        </div>
+      </div>
+      <span class="roster-course-open">Abrir curso <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </a>
+    {% empty %}<div class="empty">No tienes cursos asignados todavía.</div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

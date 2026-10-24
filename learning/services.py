@@ -44,16 +44,19 @@ def can_access_lesson(enrollment, lesson):
     if previous_lessons.exclude(progress_records__enrollment=enrollment, progress_records__completed_at__isnull=False).exists():
         return False
     from assessments.models import Quiz
-    for quiz in Quiz.objects.filter(module__in=previous_modules, is_required=True, is_active=True):
+    for quiz in Quiz.objects.filter(
+        course=enrollment.course, kind=Quiz.Kind.MODULE, module__in=previous_modules,
+        is_required=True, is_active=True,
+    ):
         if not quiz.attempts.filter(enrollment=enrollment, passed=True).exists():
             return False
     return True
 
 
 def progress_percentage(enrollment):
-    from assessments.models import Quiz
+    from assessments.services import valid_quizzes_for_course
     lessons = Lesson.objects.filter(module__course=enrollment.course, is_published=True)
-    required_quizzes = Quiz.objects.filter(course=enrollment.course, is_required=True, is_active=True)
+    required_quizzes = valid_quizzes_for_course(enrollment.course).filter(is_required=True, is_active=True)
     total = lessons.count() + required_quizzes.count()
     if total == 0:
         return 0
@@ -105,7 +108,7 @@ def resume_learning_target(enrollment):
                     return {'kind': 'lesson', 'lesson': lesson}
                 break
         else:
-            for pending_quiz in Quiz.objects.filter(module=module, is_required=True, is_active=True).order_by('created_at'):
+            for pending_quiz in Quiz.objects.filter(course=course, kind=Quiz.Kind.MODULE, module=module, is_required=True, is_active=True).order_by('created_at'):
                 if not _quiz_passed(pending_quiz, enrollment):
                     return {'kind': 'quiz', 'quiz': pending_quiz}
 
@@ -125,7 +128,7 @@ def next_step_after_lesson(enrollment, lesson):
     if later_in_module:
         return {'kind': 'lesson', 'lesson': later_in_module, 'label': 'Siguiente clase'}
 
-    for module_quiz in Quiz.objects.filter(module=module, is_required=True, is_active=True).order_by('created_at'):
+    for module_quiz in Quiz.objects.filter(course=course, kind=Quiz.Kind.MODULE, module=module, is_required=True, is_active=True).order_by('created_at'):
         if not _quiz_passed(module_quiz, enrollment):
             return {'kind': 'quiz', 'quiz': module_quiz, 'label': 'Continuar al cuestionario'}
 
@@ -175,10 +178,22 @@ def course_navigation_context(enrollment, *, active_lesson_id=None, active_quiz_
             item.student_can_open = can_access_lesson(enrollment, item)
         module.nav_lessons = nav_lessons
 
-        nav_quizzes = [item for item in module.quizzes.all() if item.is_active]
+        nav_quizzes = [
+            item for item in module.quizzes.all()
+            if item.is_active and item.kind == Quiz.Kind.MODULE and item.course_id == course.id
+        ]
         nav_quizzes.sort(key=lambda item: (item.created_at, str(item.id)))
+        from assessments.services import can_start_attempt
         for quiz in nav_quizzes:
             quiz.student_passed = quiz.attempts.filter(enrollment=enrollment, passed=True).exists()
+            latest_attempt = quiz.attempts.filter(
+                enrollment=enrollment, submitted_at__isnull=False
+            ).order_by('-submitted_at').first()
+            quiz.student_result_attempt_id = latest_attempt.id if latest_attempt else None
+            quiz.student_can_open, quiz.student_lock_reason = can_start_attempt(quiz, enrollment)
+            if quiz.student_passed:
+                quiz.student_can_open = True
+                quiz.student_lock_reason = ''
         module.nav_quizzes = nav_quizzes
 
     final_quizzes = list(
@@ -189,8 +204,17 @@ def course_navigation_context(enrollment, *, active_lesson_id=None, active_quiz_
             is_active=True,
         ).order_by('created_at', 'id')
     )
+    from assessments.services import can_start_attempt
     for quiz in final_quizzes:
         quiz.student_passed = quiz.attempts.filter(enrollment=enrollment, passed=True).exists()
+        latest_attempt = quiz.attempts.filter(
+            enrollment=enrollment, submitted_at__isnull=False
+        ).order_by('-submitted_at').first()
+        quiz.student_result_attempt_id = latest_attempt.id if latest_attempt else None
+        quiz.student_can_open, quiz.student_lock_reason = can_start_attempt(quiz, enrollment)
+        if quiz.student_passed:
+            quiz.student_can_open = True
+            quiz.student_lock_reason = ''
 
     return {
         # El sidebar se reutiliza también desde cuestionarios/resultados.

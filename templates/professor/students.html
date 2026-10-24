@@ -1,6 +1,59 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Estudiantes · {{ course.title }}{% endblock %}
 {% block content %}
-<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">SEGUIMIENTO</span><h1>{{ course.title }}</h1><p>Consulta avance y resultados automáticos. No existen calificaciones manuales pendientes.</p></div><div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' course.id %}">Volver al curso</a></div></div>
-<div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>Acceso</th><th>Progreso</th><th>Evaluaciones</th></tr></thead><tbody>{% for row in rows %}<tr><td><strong>{{ row.enrollment.user.display_name }}</strong><br><small>{{ row.enrollment.user.email }}</small></td><td><span class="badge badge-neutral">{{ row.enrollment.get_status_display }}</span>{% if row.enrollment.expires_at %}<br><small>Hasta {{ row.enrollment.expires_at|date:'d/m/Y' }}</small>{% endif %}</td><td><strong>{{ row.progress }}%</strong><div class="progress" style="margin-top:7px;max-width:150px"><span style="width:{{ row.progress }}%"></span></div></td><td>{% for attempt in row.attempts %}<div class="attempt-line"><span>{{ attempt.quiz.title }} · <strong>{{ attempt.score|default:0 }}%</strong></span>{% if attempt.passed %}<span class="sa-status ok">Aprobado</span>{% else %}<span class="sa-status danger">No aprobado</span>{% endif %}</div>{% empty %}<span class="muted">Sin intentos registrados</span>{% endfor %}</td></tr>{% empty %}<tr><td colspan="4">No hay estudiantes matriculados.</td></tr>{% endfor %}</tbody></table></div>
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">SEGUIMIENTO DEL CURSO</span><h1>{{ course.title }}</h1><p>Este panel contiene exclusivamente la actividad académica y financiera de este curso.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_students_overview' %}">← Todos mis cursos</a><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' course.id %}">Configurar curso</a></div>
+</div>
+
+<div class="professor-stat-grid professor-course-stats">
+  <article class="professor-stat-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.students }}</strong><span>Estudiantes</span><small>Matrículas de este curso</small></div></article>
+  <article class="professor-stat-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ stats.average_progress }}%</strong><span>Progreso promedio</span><small>Avance general del grupo</small></div></article>
+  <article class="professor-stat-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><div><strong>{% if stats.average_grade != None %}{{ stats.average_grade }}%{% else %}—{% endif %}</strong><span>Nota promedio</span><small>Evaluaciones entregadas</small></div></article>
+  <article class="professor-stat-card {% if stats.pending_payments %}has-alert{% endif %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>{{ stats.pending_payments }}</strong><span>Pagos pendientes</span><small>{% if can_manage_students %}Requieren revisión{% else %}Solo lectura{% endif %}</small></div></article>
+</div>
+
+<nav class="course-management-tabs" aria-label="Gestión del curso"><a href="#estudiantes">Estudiantes y notas</a><a href="#comprobantes">Comprobantes y pagos{% if stats.pending_payments %}<span>{{ stats.pending_payments }}</span>{% endif %}</a></nav>
+
+<section class="panel professor-data-panel" id="estudiantes">
+  <div class="section-head"><div><span class="eyebrow">ESTUDIANTES</span><h2>Progreso y notas por evaluación</h2><p>Cada estudiante se muestra con su cuenta, avance general y la nota de cada cuestionario o examen perteneciente exclusivamente a este curso.</p></div><span class="sa-status">{{ stats.quizzes }} evaluaciones</span></div>
+  <div class="professor-student-progress-list">
+    {% for row in rows %}
+    <article class="professor-student-progress-card">
+      <div class="student-progress-head">
+        <div class="student-progress-person"><span class="student-avatar-small">{{ row.enrollment.user.display_name|slice:':1'|upper }}</span><div><strong>{{ row.enrollment.user.display_name }}</strong><small>{{ row.enrollment.user.email }}</small></div></div>
+        <div class="student-account-status"><span class="sa-status {% if row.membership and row.membership.status == 'ACTIVE' %}ok{% else %}warn{% endif %}">{% if row.membership %}Cuenta {{ row.membership.get_status_display }}{% else %}Sin membresía{% endif %}</span><span class="sa-status {% if row.enrollment.status == 'ACTIVE' or row.enrollment.status == 'COMPLETED' %}ok{% else %}warn{% endif %}">Curso {{ row.enrollment.get_status_display }}</span></div>
+      </div>
+      <div class="student-progress-summary">
+        <div><span>Progreso</span><strong>{{ row.progress }}%</strong><div class="mini-progress"><span style="width:{{ row.progress }}%"></span></div></div>
+        <div><span>Promedio</span><strong>{% if row.average_score != None %}{{ row.average_score }}%{% else %}—{% endif %}</strong><small>{% if row.average_score != None %}Evaluaciones calificadas{% else %}Sin intentos enviados{% endif %}</small></div>
+        <div><span>Última nota</span><strong>{% if row.latest_score != None %}{{ row.latest_score }}%{% else %}—{% endif %}</strong><small>{{ row.attempts|length }} intento{{ row.attempts|length|pluralize }}</small></div>
+        <div class="student-access-action"><span>Acceso</span>{% if can_manage_students and row.membership and row.membership.status != 'ACTIVE' %}<form method="post" action="{% url 'catalog:professor_student_access_action' course.id row.enrollment.user.id %}">{% csrf_token %}<button class="sa-action ok-action" type="submit">Habilitar cuenta</button></form>{% else %}<strong>{% if row.membership and row.membership.status == 'ACTIVE' %}Habilitado{% else %}Revisar cuenta{% endif %}</strong>{% endif %}</div>
+      </div>
+      <div class="student-quiz-results">
+        <div class="student-quiz-results-title"><strong>Notas por cuestionario</strong><span>Último intento enviado de cada evaluación</span></div>
+        <div class="student-quiz-grid">
+          {% for result in row.quiz_results %}
+          <div class="student-quiz-chip {% if result.attempt and result.passed %}is-passed{% elif result.attempt %}is-failed{% else %}is-empty{% endif %}">
+            <span>{{ result.label }}</span>
+            <strong>{{ result.quiz.title }}</strong>
+            <div>{% if result.score != None %}<b>{{ result.score }}%</b><small>{% if result.passed %}Aprobado{% else %}No aprobado{% endif %} · {{ result.attempts }} intento{{ result.attempts|pluralize }}</small>{% else %}<b>—</b><small>Sin intento enviado</small>{% endif %}</div>
+          </div>
+          {% empty %}<div class="empty student-quiz-empty">Este curso todavía no tiene cuestionarios configurados.</div>{% endfor %}
+        </div>
+      </div>
+    </article>
+    {% empty %}<div class="empty">No hay estudiantes matriculados en este curso.</div>{% endfor %}
+  </div>
+</section>
+
+<section class="panel professor-data-panel" id="comprobantes">
+  <div class="section-head"><div><span class="eyebrow">COMPROBANTES DEL CURSO</span><h2>Pagos y depósitos</h2><p>{% if can_manage_students %}Puedes procesar únicamente pagos relacionados con este curso.{% else %}El dueño debe habilitar tu permiso para aprobar, rechazar o abrir comprobantes.{% endif %}</p></div></div>
+  {% if not can_manage_students %}<div class="delegated-permission-note"><strong>Solo lectura</strong><span>El permiso se activa desde el perfil de tu usuario en el panel del dueño.</span></div>{% endif %}
+  <div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>Orden</th><th>Método</th><th>Monto</th><th>Estado</th><th>Comprobante</th><th>Acciones</th></tr></thead><tbody>
+    {% for payment in payments %}<tr><td><strong>{{ payment.order.user.display_name }}</strong><br><small>{{ payment.order.user.email }}</small></td><td>{{ payment.order.code }}</td><td>{{ payment.get_method_display }}</td><td>{{ payment.amount }} {{ payment.order.currency }}</td><td><span class="sa-status {% if payment.status == 'APPROVED' %}ok{% elif payment.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ payment.get_status_display }}</span></td><td>{% if payment.proof and can_manage_students %}<a class="sa-action" href="{% url 'catalog:professor_payment_proof' payment.id %}" target="_blank">Ver comprobante</a>{% elif payment.proof %}<span class="muted">Requiere permiso</span>{% else %}<span class="muted">Sin archivo</span>{% endif %}</td><td>{% if can_manage_students and payment.status == 'PENDING' %}<div class="payment-action-group"><form method="post" action="{% url 'catalog:professor_payment_action' payment.id %}">{% csrf_token %}<input type="hidden" name="return_to" value="course"><button class="sa-action ok-action" type="submit" name="action" value="approve">Aprobar</button></form><form method="post" action="{% url 'catalog:professor_payment_action' payment.id %}">{% csrf_token %}<input type="hidden" name="return_to" value="course"><button class="sa-action danger" type="submit" name="action" value="reject">Rechazar</button></form></div>{% else %}<span class="muted">—</span>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="7">No existen pagos registrados en este curso.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
 {% endblock %}

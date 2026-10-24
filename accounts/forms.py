@@ -6,15 +6,49 @@ from django.template import loader
 from django.core.mail import EmailMultiAlternatives
 
 from tenancy.models import Academy, AcademyMembership
-from tenancy.mail import academy_email_connection, attach_brand_logo
+from tenancy.mail import academy_email_connection, academy_mail_available, academy_sender, attach_brand_logo
 from .models import User
 
 
 class RegisterForm(forms.Form):
+    PHONE_COUNTRY_CHOICES = [
+        ('+593', 'Ecuador (+593)'),
+        ('+1', 'Estados Unidos / Canadá (+1)'),
+        ('+34', 'España (+34)'),
+        ('+57', 'Colombia (+57)'),
+        ('+51', 'Perú (+51)'),
+        ('+52', 'México (+52)'),
+        ('+56', 'Chile (+56)'),
+        ('+54', 'Argentina (+54)'),
+        ('+58', 'Venezuela (+58)'),
+        ('+55', 'Brasil (+55)'),
+        ('+591', 'Bolivia (+591)'),
+        ('+595', 'Paraguay (+595)'),
+        ('+598', 'Uruguay (+598)'),
+        ('+506', 'Costa Rica (+506)'),
+        ('+507', 'Panamá (+507)'),
+        ('+503', 'El Salvador (+503)'),
+        ('+502', 'Guatemala (+502)'),
+        ('+504', 'Honduras (+504)'),
+        ('+505', 'Nicaragua (+505)'),
+        ('+1809', 'República Dominicana (+1 809)'),
+    ]
+
     first_name = forms.CharField(label='Nombre', max_length=150, widget=forms.TextInput(attrs={'placeholder': 'Tu nombre'}))
     last_name = forms.CharField(label='Apellido', max_length=150, widget=forms.TextInput(attrs={'placeholder': 'Tu apellido'}))
     email = forms.EmailField(label='Correo electrónico', widget=forms.EmailInput(attrs={'placeholder': 'nombre@correo.com'}))
-    phone = forms.CharField(label='Teléfono (opcional)', max_length=30, required=False, widget=forms.TextInput(attrs={'placeholder': '+593 ...'}))
+    phone_country = forms.ChoiceField(
+        label='País', choices=PHONE_COUNTRY_CHOICES, initial='+593', required=False,
+        widget=forms.Select(attrs={'class': 'phone-country-select', 'aria-label': 'Código de país'}),
+    )
+    phone = forms.CharField(
+        label='Número de teléfono (opcional)', max_length=24, required=False,
+        help_text='Selecciona el país y escribe únicamente tu número. Guardaremos el prefijo internacional automáticamente.',
+        widget=forms.TextInput(attrs={
+            'placeholder': '098 572 1899', 'inputmode': 'tel', 'autocomplete': 'tel-national',
+            'data-phone-local': '1',
+        }),
+    )
     password1 = forms.CharField(label='Contraseña', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password', 'placeholder': 'Crea una contraseña segura'}))
     password2 = forms.CharField(label='Confirmar contraseña', strip=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password', 'placeholder': 'Repite la contraseña'}))
 
@@ -29,6 +63,25 @@ class RegisterForm(forms.Form):
         if self.existing_user and self.academy and AcademyMembership.objects.filter(academy=self.academy, user_id=self.existing_user.pk).exists():
             raise forms.ValidationError('Este correo ya está registrado en esta academia. Usa Iniciar sesión.')
         return email
+
+    def clean_phone(self):
+        raw = (self.cleaned_data.get('phone') or '').strip()
+        if not raw:
+            return ''
+        local_digits = ''.join(ch for ch in raw if ch.isdigit())
+        prefix = (self.data.get('phone_country') or self.initial.get('phone_country') or '+593').strip()
+        prefix_digits = ''.join(ch for ch in prefix if ch.isdigit())
+        if not prefix_digits:
+            prefix_digits = '593'
+        # Acepta tanto número local (098...) como uno que el usuario pegó ya con
+        # el prefijo seleccionado. Se guarda siempre en formato internacional.
+        if local_digits.startswith(prefix_digits) and len(local_digits) > len(prefix_digits) + 5:
+            international_digits = local_digits
+        else:
+            international_digits = prefix_digits + local_digits.lstrip('0')
+        if not 8 <= len(international_digits) <= 15:
+            raise forms.ValidationError('Ingresa un número válido para el país seleccionado.')
+        return '+' + international_digits
 
     def clean(self):
         cleaned = super().clean()
@@ -54,6 +107,10 @@ class RegisterForm(forms.Form):
 
     def save(self):
         if self.existing_user:
+            phone = self.cleaned_data.get('phone', '')
+            if phone and phone != self.existing_user.phone:
+                self.existing_user.phone = phone
+                self.existing_user.save(update_fields=['phone', 'updated_at'])
             return self.existing_user, False
         user = User.objects.create_user(
             email=self.cleaned_data['email'],
@@ -93,8 +150,8 @@ class AcademyPasswordResetForm(PasswordResetForm):
         return User.objects.filter(pk__in=ids, email__iexact=email, is_active=True)
 
     def send_mail(self, subject_template_name, email_template_name, context, from_email, to_email, html_email_template_name=None):
-        if not self.academy or not self.academy.smtp_configured:
-            raise RuntimeError('El SMTP de esta academia no está configurado.')
+        if not self.academy or not academy_mail_available(self.academy):
+            raise RuntimeError('El servicio de correo no está disponible temporalmente.')
         subject = loader.render_to_string(subject_template_name, context)
         subject = ''.join(subject.splitlines())
         body = loader.render_to_string(email_template_name, context)
@@ -102,7 +159,7 @@ class AcademyPasswordResetForm(PasswordResetForm):
         email_message = EmailMultiAlternatives(
             subject,
             body,
-            self.academy.smtp_sender,
+            academy_sender(self.academy),
             [to_email],
             connection=connection,
         )

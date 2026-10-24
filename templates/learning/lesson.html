@@ -1,32 +1,40 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{{ lesson.title }} · {{ course.title }}{% endblock %}
 {% block content %}
+{% if professor_student_preview %}{% include 'professor/_student_preview_banner.html' %}{% endif %}
 <section class="player-layout">
   {% include 'learning/_course_sidebar.html' %}
 
   <div class="lesson-main">
     <div class="lesson-header">
       <div><span class="eyebrow">MÓDULO {{ lesson.module.order }} · {{ lesson.module.title }}</span><h1>{{ lesson.title }}</h1></div>
-      <div class="lesson-header-meta">{{ lesson.duration_minutes }} min · {% if progress.completed %}Completada{% else %}En progreso{% endif %}</div>
+      <div class="lesson-header-meta">{% if lesson.video_source %}Video{% elif lesson.material_pdf %}PDF{% else %}Indicaciones{% endif %}{% if lesson.duration_minutes %} · {{ lesson.duration_minutes }} min{% endif %} · {% if professor_student_preview %}Vista previa{% elif progress.completed %}Completada{% else %}En progreso{% endif %}</div>
     </div>
 
-    {% if lesson.embed_url %}
-      <div class="video-wrap"><iframe src="{{ lesson.embed_url }}" title="{{ lesson.title }}" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="watermark">{{ request.academy.name|upper }} · {{ user.email }}</div></div>
-    {% else %}
-      <div class="video-placeholder">Esta clase no tiene video configurado.</div>
+    {% if video_frame_url %}
+      <div class="video-wrap video-wrap-secure protected-media" data-protected-media>
+        <iframe src="{{ video_frame_url }}" title="Reproductor protegido · {{ lesson.title }}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="no-referrer" loading="eager"></iframe>
+      </div>
     {% endif %}
 
     {% if material_page_count %}
-    <section class="pdf-slide-shell" data-pdf-slide-viewer tabindex="0" aria-label="Material PDF en diapositivas">
+    <section class="pdf-slide-shell protected-media" data-protected-media data-pdf-slide-viewer data-security-autofocus tabindex="-1" aria-label="Material PDF en diapositivas">
       <div class="pdf-slide-head">
         <div>
           <span class="eyebrow">MATERIAL DE APOYO</span>
-          <h2>PDF en diapositivas</h2>
-          <p>Se conserva el PDF completo: diseño, imágenes y texto. Academy muestra una página a la vez y no ofrece descarga directa.</p>
+          <h2>Material de lectura</h2>
+          <p>Lee el documento dentro de Academy. Puedes ampliarlo a pantalla completa y ajustar la página al ancho para leer con comodidad.</p>
         </div>
-        <div class="pdf-slide-meta">
-          <strong data-pdf-counter>1 / {{ material_page_count }}</strong>
-          {% if material_pdf_size %}<small>PDF optimizado · {{ material_pdf_size|filesizeformat }}</small>{% endif %}
+        <div class="pdf-slide-tools">
+          <div class="pdf-slide-meta">
+            <strong data-pdf-counter>1 / {{ material_page_count }}</strong>
+            {% if material_pdf_size %}<small>PDF protegido · {{ material_pdf_size|filesizeformat }}</small>{% endif %}
+          </div>
+          <div class="pdf-tool-actions">
+            <button type="button" class="media-tool-button media-tool-light" data-pdf-fit aria-pressed="false"><svg><use href="{% static 'icons/sprite.svg' %}#fit-width"></use></svg><span>Ajustar ancho</span></button>
+            <button type="button" class="media-tool-button media-tool-light" data-pdf-fullscreen aria-label="Ampliar material"><svg><use href="{% static 'icons/sprite.svg' %}#fullscreen"></use></svg><span data-pdf-fullscreen-label>Ampliar</span></button>
+          </div>
         </div>
       </div>
 
@@ -34,32 +42,41 @@
         <button type="button" class="pdf-edge-control pdf-edge-prev" data-pdf-prev aria-label="Página anterior">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg>
         </button>
-        <div class="pdf-page-frame">
+        <div class="pdf-page-frame" data-pdf-frame>
           <div class="pdf-page-loader" data-pdf-loader><span></span><small>Cargando página…</small></div>
           <img src="{{ material_page_urls.0 }}" data-pdf-page alt="Página 1 del material {{ lesson.title }}" draggable="false">
-          <div class="pdf-page-watermark">{{ request.academy.name|upper }} · {{ user.email }}</div>
         </div>
         <button type="button" class="pdf-edge-control pdf-edge-next" data-pdf-next aria-label="Página siguiente">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg>
         </button>
       </div>
 
-      <div class="pdf-slide-footer">
+      <div class="pdf-slide-footer pdf-slide-footer-progress">
         <button type="button" class="flow-button flow-button-secondary" data-pdf-prev-footer><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg><span>Anterior</span></button>
-        <div class="pdf-page-dots" data-pdf-dots aria-label="Páginas del material"></div>
+        <div class="pdf-progress-navigation">
+          <div class="pdf-progress-copy"><strong data-pdf-progress-label>Página 1 de {{ material_page_count }}</strong><span data-pdf-progress-message>Desliza para moverte por el material</span></div>
+          <input class="pdf-page-slider" data-pdf-slider type="range" min="1" max="{{ material_page_count }}" value="1" step="1" aria-label="Ir a una página del material">
+          <div class="pdf-progress-track" aria-hidden="true"><span data-pdf-progress-fill style="width:{% widthratio 1 material_page_count 100 %}%"></span></div>
+        </div>
         <button type="button" class="flow-button flow-button-primary" data-pdf-next-footer><span>Siguiente</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></button>
       </div>
-      <p class="pdf-slide-tip">Puedes usar ← → en el teclado o deslizar lateralmente en móvil.</p>
+      <p class="pdf-slide-tip">Usa ← → o la barra para cambiar de página. Al llegar al final te lo indicaremos claramente.</p>
       {{ material_page_urls|json_script:"material-page-urls" }}
     </section>
     {% endif %}
 
     <nav class="learning-flow-nav" aria-label="Navegación del curso">
-      <div class="learning-flow-side">{% if previous_lesson %}<a class="flow-button flow-button-secondary" href="{% url 'learning:lesson' course.slug previous_lesson.id %}" aria-label="Clase anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg><span>Anterior</span></a>{% endif %}</div>
-      <div class="learning-flow-center"><span class="learning-inline-status">{% if material_page_count %}{{ material_page_count }} página{{ material_page_count|pluralize:'s' }} de material PDF{% else %}Sin material adicional{% endif %}</span></div>
-      <div class="learning-flow-side learning-flow-side-end"><form method="post" action="{% url 'learning:complete_lesson' course.slug lesson.id %}">{% csrf_token %}<button class="flow-button flow-button-primary" type="submit"><span>{{ next_step.label }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></button></form></div>
+      {% if professor_student_preview %}
+        <div class="learning-flow-side">{% if preview_previous_url %}<a class="flow-button flow-button-secondary" href="{{ preview_previous_url }}" aria-label="Paso anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg><span>{{ preview_previous_label|default:'Anterior' }}</span></a>{% endif %}</div>
+        <div class="learning-flow-center"><span class="learning-inline-status preview-inline-status">Vista de prueba · no guarda progreso</span></div>
+        <div class="learning-flow-side learning-flow-side-end"><a class="flow-button flow-button-primary" href="{{ preview_next_url }}"><span>{{ preview_next_label }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></a></div>
+      {% else %}
+        <div class="learning-flow-side">{% if previous_lesson %}<a class="flow-button flow-button-secondary" href="{% url 'learning:lesson' course.slug previous_lesson.id %}" aria-label="Clase anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7"/></svg><span>Anterior</span></a>{% endif %}</div>
+        <div class="learning-flow-center"><span class="learning-inline-status">{% if material_page_count %}{{ material_page_count }} página{{ material_page_count|pluralize:'s' }} de material PDF{% else %}Sin material adicional{% endif %}</span></div>
+        <div class="learning-flow-side learning-flow-side-end"><form method="post" action="{% url 'learning:complete_lesson' course.slug lesson.id %}">{% csrf_token %}<button class="flow-button flow-button-primary" type="submit"><span>{{ next_step.label }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></button></form></div>
+      {% endif %}
     </nav>
-    <p class="learning-flow-hint">Tu progreso se guarda automáticamente al continuar al siguiente paso.</p>
+    {% if professor_student_preview %}<p class="learning-flow-hint">Puedes recorrer todo el curso libremente. Esta vista nunca modifica datos académicos.</p>{% else %}<p class="learning-flow-hint">Al continuar se guarda esta clase y se abre el siguiente paso real de tu ruta.</p>{% endif %}
 
     <div class="panel lesson-content">
       <div class="lesson-content-head"><span class="eyebrow">RESUMEN DE LA CLASE</span><h2>Qué trabajarás aquí</h2></div>
@@ -67,6 +84,7 @@
     </div>
   </div>
 </section>
+
 {% if material_page_count %}
 <script>
 (function(){
@@ -77,9 +95,16 @@
   if(!urls.length) return;
 
   const image=root.querySelector('[data-pdf-page]');
+  const frame=root.querySelector('[data-pdf-frame]');
   const loader=root.querySelector('[data-pdf-loader]');
   const counter=root.querySelector('[data-pdf-counter]');
-  const dots=root.querySelector('[data-pdf-dots]');
+  const slider=root.querySelector('[data-pdf-slider]');
+  const progressFill=root.querySelector('[data-pdf-progress-fill]');
+  const progressLabel=root.querySelector('[data-pdf-progress-label]');
+  const progressMessage=root.querySelector('[data-pdf-progress-message]');
+  const fullscreenButton=root.querySelector('[data-pdf-fullscreen]');
+  const pdfFullscreenLabel=root.querySelector('[data-pdf-fullscreen-label]');
+  const fitButton=root.querySelector('[data-pdf-fit]');
   const controls=[...root.querySelectorAll('[data-pdf-prev],[data-pdf-prev-footer]')];
   const nextControls=[...root.querySelectorAll('[data-pdf-next],[data-pdf-next-footer]')];
   let current=0;
@@ -96,14 +121,27 @@
     nextControls.forEach(btn=>btn.disabled=current===urls.length-1);
   }
 
-  function updateDots(){
-    [...dots.children].forEach((dot,index)=>dot.classList.toggle('is-active',index===current));
+  function updateProgress(){
+    const page=current+1;
+    const percent=((page/urls.length)*100);
+    if(slider) slider.value=String(page);
+    if(progressFill) progressFill.style.width=percent+'%';
+    if(progressLabel) progressLabel.textContent='Página '+page+' de '+urls.length;
+    if(progressMessage){
+      if(current===urls.length-1){
+        progressMessage.textContent='Has llegado al final del material';
+        progressMessage.classList.add('is-complete');
+      }else{
+        progressMessage.textContent='Desliza para moverte por el material';
+        progressMessage.classList.remove('is-complete');
+      }
+    }
   }
 
   function show(index){
     index=Math.max(0,Math.min(index,urls.length-1));
     if(index===current && image.getAttribute('src')===urls[index]){
-      updateButtons(); updateDots(); return;
+      updateButtons(); updateProgress(); return;
     }
     current=index;
     loader.classList.add('is-visible');
@@ -111,37 +149,60 @@
     image.alt='Página '+(current+1)+' del material {{ lesson.title|escapejs }}';
     image.src=urls[current];
     counter.textContent=(current+1)+' / '+urls.length;
+    if(frame) frame.scrollTo(0,0);
     updateButtons();
-    updateDots();
+    updateProgress();
     preload(current+1);
   }
 
   image.addEventListener('load',()=>{
     loader.classList.remove('is-visible');
     image.classList.remove('is-loading');
+    root.dataset.mediaReady='true';
+    document.dispatchEvent(new CustomEvent('academy:protected-media-ready',{detail:{type:'pdf'}}));
   });
   image.addEventListener('error',()=>{
     loader.classList.remove('is-visible');
     image.classList.remove('is-loading');
   });
   image.addEventListener('contextmenu',event=>event.preventDefault());
+  image.addEventListener('dragstart',event=>event.preventDefault());
 
   controls.forEach(btn=>btn.addEventListener('click',()=>show(current-1)));
   nextControls.forEach(btn=>btn.addEventListener('click',()=>show(current+1)));
 
-  const maxDots=Math.min(urls.length,24);
-  for(let i=0;i<maxDots;i++){
-    const dot=document.createElement('button');
-    dot.type='button';
-    dot.setAttribute('aria-label','Ir a página '+(i+1));
-    dot.addEventListener('click',()=>show(i));
-    dots.appendChild(dot);
+  if(fitButton && frame){
+    fitButton.addEventListener('click',()=>{
+      const active=frame.classList.toggle('pdf-fit-width');
+      fitButton.setAttribute('aria-pressed',active?'true':'false');
+      fitButton.classList.toggle('is-active',active);
+      frame.scrollTo({top:0,left:0});
+    });
   }
-  if(urls.length>24){
-    const label=document.createElement('span');
-    label.className='pdf-dot-overflow';
-    label.textContent='+'+(urls.length-24);
-    dots.appendChild(label);
+  function syncPdfFullscreenLabel(){
+    const expanded=document.fullscreenElement===root;
+    if(pdfFullscreenLabel) pdfFullscreenLabel.textContent=expanded?'Reducir':'Ampliar';
+    if(fullscreenButton){
+      fullscreenButton.setAttribute('aria-label',expanded?'Reducir material':'Ampliar material');
+      fullscreenButton.classList.toggle('is-active',expanded);
+    }
+  }
+  if(fullscreenButton){
+    fullscreenButton.addEventListener('click',async()=>{
+      try{
+        if(document.fullscreenElement){ await document.exitFullscreen(); }
+        else if(root.requestFullscreen){ await root.requestFullscreen(); }
+      }catch(e){}
+    });
+    document.addEventListener('fullscreenchange',syncPdfFullscreenLabel);
+  }
+
+  if(slider){
+    slider.max=String(urls.length);
+    slider.addEventListener('input',event=>{
+      const target=Math.max(1,Math.min(Number(event.target.value)||1,urls.length));
+      show(target-1);
+    });
   }
 
   root.addEventListener('keydown',event=>{
@@ -159,7 +220,8 @@
 
   counter.textContent='1 / '+urls.length;
   updateButtons();
-  updateDots();
+  updateProgress();
+  syncPdfFullscreenLabel();
   preload(1);
 })();
 </script>

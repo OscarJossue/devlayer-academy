@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}{{ title }} · Devlayer Academy{% endblock %}
 {% block content %}
-<div class="page-heading"><div class="page-heading-copy"><span class="eyebrow">NUEVO CURSO</span><h1>{{ title }}</h1><p>Define la información comercial y académica. También indica si el curso entrega certificado; después podrás ajustar su diseño, contenido y evaluaciones.</p></div></div>
-<section class="panel form-panel" style="max-width:900px"><div class="form-help-card"><strong>Flujo:</strong> crea el curso como borrador → agrega contenido → configura certificado y cuestionarios → envíalo a revisión del dueño.</div><form method="post" enctype="multipart/form-data" class="form-stack" data-course-create-form>{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Crear curso</button></form></section>
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy"><span class="eyebrow">NUEVO CURSO</span><h1>{{ title }}</h1><p>Define la información comercial y académica básica. La certificación, clase magistral, módulos y evaluaciones se configuran después en sus apartados únicos.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_categories' %}">Gestionar categorías</a></div>
+</div>
+<section class="panel form-panel" style="max-width:900px"><div class="form-help-card"><strong>Flujo recomendado:</strong> crea el curso → configura módulos → examen final → clase magistral → certificado → envía a revisión.</div><form method="post" enctype="multipart/form-data" class="form-stack" data-course-create-form>{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Crear curso</button></form></section>
 {% endblock %}
-{% block extra_scripts %}<script>(function(){const enabled=document.getElementById('id_certificate_enabled'),mode=document.getElementById('id_certificate_style_mode');if(!enabled||!mode)return;function r(){mode.closest('.form-field').style.display=enabled.checked?'block':'none';}enabled.addEventListener('change',r);r();})();</script>{% endblock %}

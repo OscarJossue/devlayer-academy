@@ -1,0 +1,458 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <title>Reproductor protegido</title>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050812;color:#fff;font-family:Montserrat,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,input{font:inherit}
+    .sv-shell{position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:#050812;user-select:none;-webkit-user-select:none}
+    .sv-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000}
+    #secure-youtube-player,#secure-youtube-player iframe{position:absolute!important;inset:0;width:100%!important;height:100%!important;border:0!important;pointer-events:none!important}
+    .sv-stage-hit{position:absolute;inset:0;z-index:4;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:pointer;color:#fff}
+    .sv-stage-hit:focus-visible{outline:3px solid rgba(126,92,255,.95);outline-offset:-5px}
+    .sv-identity{position:absolute;z-index:8;top:14px;right:14px;max-width:min(76%,620px);padding:6px 10px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(4,8,18,.56);backdrop-filter:blur(5px);font-size:9px;font-weight:800;letter-spacing:.025em;color:rgba(255,255,255,.78);pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sv-center{position:absolute;z-index:7;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:62px;height:62px;border:1px solid rgba(255,255,255,.20);border-radius:50%;background:rgba(5,8,18,.56);backdrop-filter:blur(7px);pointer-events:none;opacity:0;transition:opacity .15s ease}
+    .sv-center.is-visible{opacity:1}.sv-center svg{width:27px;height:27px;fill:#fff}
+    .sv-status{position:absolute;z-index:9;left:50%;top:50%;transform:translate(-50%,-50%);padding:8px 11px;border-radius:10px;background:rgba(7,11,20,.82);font-size:11px;font-weight:800;pointer-events:none;opacity:0;transition:opacity .18s ease}.sv-status.is-visible{opacity:1}
+    .sv-controls{position:relative;z-index:20;display:grid;grid-template-columns:auto auto minmax(170px,1fr) auto auto auto;align-items:center;gap:8px;padding:10px 12px;background:linear-gradient(180deg,rgba(10,15,28,.98),rgba(5,8,15,.995));border-top:1px solid rgba(255,255,255,.09)}
+    .sv-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:0 11px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.075);color:#fff;font-size:11px;font-weight:850;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
+    .sv-btn:hover:not(:disabled){background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.24)}.sv-btn:focus-visible{outline:2px solid #8b72ff;outline-offset:2px}.sv-btn:disabled{opacity:.42;cursor:not-allowed}.sv-btn svg{width:16px;height:16px;fill:currentColor;flex:0 0 auto}
+    .sv-skip{min-width:46px;padding:0 9px}.sv-skip strong{font-size:11px;font-variant-numeric:tabular-nums}
+    .sv-progress{display:grid;grid-template-columns:minmax(100px,1fr) auto;align-items:center;gap:10px;min-width:0}
+    .sv-range{width:100%;height:22px;margin:0;accent-color:#7554ff;cursor:pointer}.sv-range:disabled{opacity:.45;cursor:not-allowed}
+    .sv-time{min-width:92px;text-align:right;font-size:10px;font-weight:800;color:#cbd5e1;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .sv-volume{display:flex;align-items:center;gap:7px}.sv-volume .sv-range{width:72px}
+    @media(max-width:820px){
+      .sv-controls{grid-template-columns:38px 38px minmax(0,1fr) 38px 38px 38px;gap:5px;padding:7px 8px;overflow:hidden}
+      .sv-btn{width:38px;min-width:38px;min-height:38px;padding:0;border-radius:9px}
+      .sv-btn span{display:none}
+      .sv-skip{width:38px;min-width:38px;padding:0}.sv-skip strong{font-size:10px}
+      .sv-progress{grid-template-columns:minmax(0,1fr);gap:0;min-width:0;width:100%}
+      .sv-progress .sv-range{min-width:0;width:100%}
+      .sv-time{display:none}
+      .sv-volume{display:flex;width:38px;min-width:38px;overflow:visible}
+      .sv-volume .sv-range{display:none}
+      .sv-volume .sv-btn{flex:0 0 38px}
+      .sv-identity{top:8px;right:8px;max-width:78%;font-size:8px}.sv-center{width:52px;height:52px}
+    }
+    @media(max-width:520px){
+      .sv-controls{grid-template-columns:34px 34px minmax(0,1fr) 34px 34px 34px;gap:4px;padding:6px}
+      .sv-btn,.sv-skip{width:34px;min-width:34px;min-height:34px}
+      .sv-volume{width:34px;min-width:34px}.sv-volume .sv-btn{flex-basis:34px}
+      .sv-btn svg{width:14px;height:14px}.sv-skip strong{font-size:9px}
+    }
+    .sv-capture-guard{position:absolute;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:#050812;color:#fff;font-size:13px;font-weight:850;letter-spacing:.02em;text-align:center;opacity:0;visibility:hidden;pointer-events:none;transition:none}
+    .sv-shell.is-capture-guarded .sv-capture-guard{opacity:1;visibility:visible}
+    @media print{html,body{background:#fff!important}.sv-shell{display:none!important}body:after{content:"Contenido protegido · impresión deshabilitada";display:block;color:#111;padding:40px;font:700 18px system-ui}}
+  </style>
+</head>
+<body>
+<div class="sv-shell" data-sv-shell>
+  <div class="sv-capture-guard" aria-hidden="true">Contenido protegido · Academy</div>
+  <div class="sv-stage" data-sv-stage>
+    <div id="secure-youtube-player" aria-label="Reproductor de {{ lesson.title }}"></div>
+    <button type="button" class="sv-stage-hit" data-sv-stage-toggle aria-label="Reproducir video"></button>
+    <div class="sv-center is-visible" data-sv-center aria-hidden="true"><svg viewBox="0 0 24 24"><path data-sv-center-icon d="M8 5v14l11-7z"/></svg></div>
+    <div class="sv-identity" aria-hidden="true">{{ watermark_text }}</div>
+    <div class="sv-status is-visible" data-sv-status>Cargando reproductor…</div>
+  </div>
+
+  <div class="sv-controls" aria-label="Controles del reproductor">
+    <button type="button" class="sv-btn" data-sv-play disabled aria-label="Reproducir video">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path data-sv-play-icon d="M8 5v14l11-7z"/></svg><span data-sv-play-label>Reproducir</span>
+    </button>
+
+    <button type="button" class="sv-btn sv-skip" data-sv-back disabled aria-label="Retroceder 10 segundos" title="Retroceder 10 segundos">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 8V4L5 10l6 6v-4c4.4 0 7.5 1.5 9 5-1-5-4-9-9-9z"/></svg><strong>10</strong>
+    </button>
+
+    <div class="sv-progress">
+      <input class="sv-range" type="range" min="0" max="1" value="0" step="0.1" data-sv-progress disabled aria-label="Posición del video">
+      <span class="sv-time" data-sv-time>00:00 / 00:00</span>
+    </div>
+
+    <button type="button" class="sv-btn sv-skip" data-sv-forward disabled aria-label="Adelantar 10 segundos" title="Adelantar 10 segundos">
+      <strong>10</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 8V4l6 6-6 6v-4c-4.4 0-7.5 1.5-9 5 1-5 4-9 9-9z"/></svg>
+    </button>
+
+    <div class="sv-volume">
+      <button type="button" class="sv-btn" data-sv-mute disabled aria-label="Silenciar video">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path data-sv-volume-icon d="M5 9v6h4l5 4V5L9 9H5z"/></svg><span data-sv-mute-label>Silenciar</span>
+      </button>
+      <input class="sv-range" type="range" min="0" max="100" value="100" step="1" data-sv-volume disabled aria-label="Volumen">
+    </div>
+
+    <button type="button" class="sv-btn" data-sv-fullscreen aria-label="Pantalla completa">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zm-3-12v2h3v3h2V5h-5z"/></svg><span data-sv-fullscreen-label>Pantalla completa</span>
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const shell=document.querySelector('[data-sv-shell]');
+  const stageToggle=document.querySelector('[data-sv-stage-toggle]');
+  const playButton=document.querySelector('[data-sv-play]');
+  const playLabel=document.querySelector('[data-sv-play-label]');
+  const playIcon=document.querySelector('[data-sv-play-icon]');
+  const backButton=document.querySelector('[data-sv-back]');
+  const forwardButton=document.querySelector('[data-sv-forward]');
+  const progress=document.querySelector('[data-sv-progress]');
+  const timeLabel=document.querySelector('[data-sv-time]');
+  const muteButton=document.querySelector('[data-sv-mute]');
+  const muteLabel=document.querySelector('[data-sv-mute-label]');
+  const volumeIcon=document.querySelector('[data-sv-volume-icon]');
+  const volume=document.querySelector('[data-sv-volume]');
+  const fullscreenButton=document.querySelector('[data-sv-fullscreen]');
+  const fullscreenLabel=document.querySelector('[data-sv-fullscreen-label]');
+  const status=document.querySelector('[data-sv-status]');
+  const center=document.querySelector('[data-sv-center]');
+  const centerIcon=document.querySelector('[data-sv-center-icon]');
+
+  const STATE={UNSTARTED:-1,ENDED:0,PLAYING:1,PAUSED:2,BUFFERING:3,CUED:5};
+  let player=null;
+  let ready=false;
+  let apiStarted=false;
+  let updateTimer=null;
+  let statusTimer=null;
+  let userSeeking=false;
+  let seekReleaseTimer=null;
+  let lastVolume=100;
+  let captureGuardTimer=null;
+  let capturePrearmed=false;
+  let metaDown=false;
+  let shiftDown=false;
+  const isWindows=/Windows/i.test(navigator.userAgent||'')||/^Win/i.test(navigator.platform||'');
+  const isMac=/Mac/i.test(navigator.platform||'');
+
+  function notifyParent(type,extra={}){
+    try{
+      if(window.parent&&window.parent!==window){
+        window.parent.postMessage({source:'academy-secure-video',type,...extra},window.location.origin);
+      }
+    }catch(_){}
+  }
+
+  function setCaptureGuard(active){
+    if(shell)shell.classList.toggle('is-capture-guarded',Boolean(active));
+  }
+  function holdCaptureGuard(){
+    window.clearTimeout(captureGuardTimer);
+    setCaptureGuard(true);
+    notifyParent('capture-prearm');
+  }
+  function releaseCaptureGuard(delay=900){
+    window.clearTimeout(captureGuardTimer);
+    captureGuardTimer=window.setTimeout(()=>{
+      if(capturePrearmed)return;
+      setCaptureGuard(false);
+      notifyParent('capture-release',{delay:80});
+    },Math.max(0,delay));
+  }
+  function pulseCaptureGuard(duration=1600){
+    window.clearTimeout(captureGuardTimer);
+    setCaptureGuard(true);
+    notifyParent('capture-pulse',{duration});
+    captureGuardTimer=window.setTimeout(()=>{
+      if(!capturePrearmed)setCaptureGuard(false);
+    },duration);
+  }
+  function beginCapturePrearm(){
+    capturePrearmed=true;
+    holdCaptureGuard();
+  }
+  function endCapturePrearm(delay=1100){
+    capturePrearmed=false;
+    releaseCaptureGuard(delay);
+    notifyParent('capture-release',{delay});
+  }
+  function isPrintScreen(key){return key==='printscreen'||key==='snapshot';}
+  function handleCaptureShortcut(event){
+    const key=String(event.key||'').toLowerCase();
+    const modifier=event.ctrlKey||event.metaKey;
+    if(key==='meta')metaDown=true;
+    if(key==='shift')shiftDown=true;
+
+    if((isWindows||isMac)&&metaDown&&shiftDown)beginCapturePrearm();
+
+    const printScreen=isPrintScreen(key);
+    const winSnip=isWindows&&metaDown&&shiftDown&&key==='s';
+    const macCapture=isMac&&metaDown&&shiftDown&&['3','4','5'].includes(key);
+    const browserCapture=event.ctrlKey&&event.shiftKey&&key==='s';
+    const blocked=modifier&&['p','s','u'].includes(key)&&!winSnip;
+
+    if(printScreen||winSnip||macCapture||browserCapture){
+      beginCapturePrearm();
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      return;
+    }
+    if(blocked){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();}
+  }
+  function handleCaptureKeyUp(event){
+    const key=String(event.key||'').toLowerCase();
+    if(isPrintScreen(key)){
+      pulseCaptureGuard(1600);
+      event.preventDefault();
+      return;
+    }
+    if(key==='meta')metaDown=false;
+    if(key==='shift')shiftDown=false;
+    if(!metaDown||!shiftDown)endCapturePrearm(1100);
+  }
+
+  window.addEventListener('keydown',handleCaptureShortcut,true);
+  document.addEventListener('keydown',handleCaptureShortcut,true);
+  window.addEventListener('keyup',handleCaptureKeyUp,true);
+  document.addEventListener('keyup',handleCaptureKeyUp,true);
+
+  // Focus changes alone never trigger the mask. They only keep/release a mask
+  // that was already armed by a screenshot shortcut, so video controls remain usable.
+  window.addEventListener('blur',()=>{if(capturePrearmed)setCaptureGuard(true);},true);
+  window.addEventListener('focus',()=>{metaDown=false;shiftDown=false;capturePrearmed=false;releaseCaptureGuard(80);},true);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden&&capturePrearmed)setCaptureGuard(true);
+    if(!document.hidden){capturePrearmed=false;releaseCaptureGuard(80);}
+  },true);
+  window.addEventListener('pageshow',()=>{capturePrearmed=false;metaDown=false;shiftDown=false;setCaptureGuard(false);});
+
+  function fmt(value){
+    const total=Math.max(0,Math.floor(Number(value)||0));
+    const h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;
+    return h
+      ? String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')
+      : String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  }
+
+  function showStatus(text,ms=900){
+    if(!status)return;
+    window.clearTimeout(statusTimer);
+    status.textContent=text;
+    status.classList.add('is-visible');
+    if(ms!==0) statusTimer=window.setTimeout(()=>status.classList.remove('is-visible'),Math.max(250,ms));
+  }
+
+  function call(name,...args){
+    if(!ready||!player||typeof player[name]!=='function')return undefined;
+    try{return player[name](...args);}catch(_){return undefined;}
+  }
+
+  function getState(){return Number(call('getPlayerState')??STATE.UNSTARTED);}
+  function getDuration(){return Math.max(0,Number(call('getDuration')||0));}
+  function getCurrent(){return Math.max(0,Number(call('getCurrentTime')||0));}
+  function isPlaying(){return getState()===STATE.PLAYING;}
+
+  function enableControls(enabled){
+    [playButton,backButton,forwardButton,progress,muteButton,volume].forEach(el=>{if(el)el.disabled=!enabled;});
+    if(stageToggle)stageToggle.setAttribute('aria-disabled',enabled?'false':'true');
+  }
+
+  function updatePlayUI(){
+    const playing=isPlaying();
+    if(playLabel)playLabel.textContent=playing?'Pausar':'Reproducir';
+    if(playButton)playButton.setAttribute('aria-label',playing?'Pausar video':'Reproducir video');
+    if(stageToggle)stageToggle.setAttribute('aria-label',playing?'Pausar video':'Reproducir video');
+    const path=playing?'M7 5h4v14H7zm6 0h4v14h-4z':'M8 5v14l11-7z';
+    if(playIcon)playIcon.setAttribute('d',path);
+    if(centerIcon)centerIcon.setAttribute('d',path);
+    if(center)center.classList.toggle('is-visible',!playing&&getState()!==STATE.BUFFERING);
+  }
+
+  function updateVolumeUI(){
+    if(!ready)return;
+    const muted=Boolean(call('isMuted'));
+    const value=Math.max(0,Math.min(100,Number(call('getVolume')??100)));
+    if(value>0)lastVolume=value;
+    if(volume&&document.activeElement!==volume)volume.value=String(muted?0:value);
+    if(muteLabel)muteLabel.textContent=(muted||value===0)?'Activar audio':'Silenciar';
+    if(muteButton)muteButton.setAttribute('aria-label',(muted||value===0)?'Activar audio':'Silenciar video');
+    if(volumeIcon)volumeIcon.setAttribute('d',(muted||value===0)
+      ?'M16.5 12 20 8.5l1.5 1.5-3.5 3.5 3.5 3.5-1.5 1.5-3.5-3.5-3.5 3.5-1.5-1.5 3.5-3.5-3.5-3.5L13 8.5 16.5 12zM5 9v6h4l5 4V5L9 9H5z'
+      :'M5 9v6h4l5 4V5L9 9H5z');
+  }
+
+  function syncTimeline(){
+    if(!ready)return;
+    const duration=getDuration();
+    const current=Math.min(duration||Infinity,getCurrent());
+    if(progress){
+      progress.max=String(Math.max(1,duration));
+      if(!userSeeking)progress.value=String(Math.min(duration,current));
+    }
+    if(timeLabel){
+      const displayCurrent=userSeeking?Number(progress.value||0):current;
+      timeLabel.textContent=fmt(displayCurrent)+' / '+fmt(duration);
+    }
+  }
+
+  function tick(){
+    if(!ready)return;
+    syncTimeline();
+    updatePlayUI();
+    updateVolumeUI();
+  }
+
+  function togglePlayback(){
+    if(!ready){showStatus('El reproductor todavía está cargando…');return;}
+    if(isPlaying())call('pauseVideo');else call('playVideo');
+    window.setTimeout(updatePlayUI,40);
+  }
+
+  function seekAbsolute(target){
+    if(!ready)return;
+    const duration=getDuration();
+    const safeTarget=Math.max(0,Math.min(duration||0,Number(target)||0));
+    call('seekTo',safeTarget,true);
+    if(progress)progress.value=String(safeTarget);
+    if(timeLabel)timeLabel.textContent=fmt(safeTarget)+' / '+fmt(duration);
+  }
+
+  function seekRelative(delta){
+    if(!ready)return;
+    seekAbsolute(getCurrent()+Number(delta||0));
+  }
+
+  function releaseSeekSoon(){
+    window.clearTimeout(seekReleaseTimer);
+    seekReleaseTimer=window.setTimeout(()=>{userSeeking=false;tick();},650);
+  }
+
+  function handleReady(event){
+    player=event.target;
+    ready=true;
+    enableControls(true);
+    const duration=getDuration();
+    if(progress)progress.max=String(Math.max(1,duration));
+    const initialVolume=Math.max(0,Math.min(100,Number(call('getVolume')??100)));
+    if(initialVolume>0)lastVolume=initialVolume;
+    if(volume)volume.value=String(initialVolume);
+    showStatus('Video listo',550);
+    tick();
+    window.clearInterval(updateTimer);
+    updateTimer=window.setInterval(tick,250);
+  }
+
+  function handleStateChange(event){
+    const next=Number(event.data);
+    if(next===STATE.BUFFERING)showStatus('Cargando…',450);
+    if(next===STATE.PLAYING&&status)status.classList.remove('is-visible');
+    if(next===STATE.ENDED){
+      const duration=getDuration();
+      if(progress)progress.value=String(duration);
+      showStatus('Video finalizado',800);
+    }
+    tick();
+  }
+
+  function handleError(event){
+    ready=false;
+    enableControls(false);
+    const code=event&&event.data?' ('+event.data+')':'';
+    showStatus('No se pudo reproducir este video'+code,0);
+  }
+
+  function createPlayer(){
+    if(apiStarted||!window.YT||typeof window.YT.Player!=='function')return;
+    apiStarted=true;
+    player=new window.YT.Player('secure-youtube-player',{
+      host:'https://www.youtube-nocookie.com',
+      videoId:'{{ video_id|escapejs }}',
+      width:'100%',height:'100%',
+      playerVars:{autoplay:0,controls:0,disablekb:1,fs:0,iv_load_policy:3,playsinline:1,rel:0,enablejsapi:1,origin:window.location.origin},
+      events:{onReady:handleReady,onStateChange:handleStateChange,onError:handleError}
+    });
+  }
+
+  window.onYouTubeIframeAPIReady=createPlayer;
+  function loadApi(){
+    if(window.YT&&typeof window.YT.Player==='function'){createPlayer();return;}
+    if(document.querySelector('script[data-youtube-api]'))return;
+    const script=document.createElement('script');
+    script.src='https://www.youtube.com/iframe_api';
+    script.async=true;
+    script.dataset.youtubeApi='1';
+    script.onerror=()=>showStatus('No se pudo cargar el reproductor. Recarga la clase.',0);
+    document.head.appendChild(script);
+  }
+
+  playButton.addEventListener('click',togglePlayback);
+  stageToggle.addEventListener('click',togglePlayback);
+  backButton.addEventListener('click',()=>seekRelative(-10));
+  forwardButton.addEventListener('click',()=>seekRelative(10));
+
+  progress.addEventListener('pointerdown',()=>{userSeeking=true;});
+  progress.addEventListener('mousedown',()=>{userSeeking=true;});
+  progress.addEventListener('touchstart',()=>{userSeeking=true;},{passive:true});
+  progress.addEventListener('input',()=>{
+    if(!ready)return;
+    userSeeking=true;
+    // Live seeking makes click + drag work consistently across Chrome/Edge/Firefox.
+    seekAbsolute(Number(progress.value));
+    releaseSeekSoon();
+  });
+  progress.addEventListener('change',()=>{seekAbsolute(Number(progress.value));releaseSeekSoon();});
+  window.addEventListener('pointerup',releaseSeekSoon,true);
+  window.addEventListener('mouseup',releaseSeekSoon,true);
+  window.addEventListener('touchend',releaseSeekSoon,{passive:true,capture:true});
+
+  muteButton.addEventListener('click',()=>{
+    if(!ready)return;
+    const muted=Boolean(call('isMuted'));
+    const current=Math.max(0,Number(call('getVolume')||0));
+    if(muted||current===0){call('unMute');call('setVolume',lastVolume||100);}else{lastVolume=current||100;call('mute');}
+    updateVolumeUI();
+  });
+
+  volume.addEventListener('input',()=>{
+    if(!ready)return;
+    const value=Math.max(0,Math.min(100,Number(volume.value)||0));
+    if(value===0){call('mute');}else{call('unMute');call('setVolume',value);lastVolume=value;}
+    updateVolumeUI();
+  });
+
+  fullscreenButton.addEventListener('click',async()=>{
+    try{
+      if(document.fullscreenElement)await document.exitFullscreen();
+      else if(shell.requestFullscreen)await shell.requestFullscreen();
+    }catch(_){showStatus('Pantalla completa no disponible',900);}
+  });
+  document.addEventListener('fullscreenchange',()=>{
+    const full=document.fullscreenElement===shell;
+    if(fullscreenLabel)fullscreenLabel.textContent=full?'Reducir':'Pantalla completa';
+    if(fullscreenButton)fullscreenButton.setAttribute('aria-label',full?'Reducir reproductor':'Pantalla completa');
+  });
+
+  document.addEventListener('keydown',(event)=>{
+    if(event.target instanceof HTMLInputElement)return;
+    const key=String(event.key||'').toLowerCase();
+    if(key===' '||key==='k'){event.preventDefault();togglePlayback();return;}
+    if(!ready)return;
+    if(key==='arrowleft'){event.preventDefault();seekRelative(-10);return;}
+    if(key==='arrowright'){event.preventDefault();seekRelative(10);return;}
+    if(key==='j'){event.preventDefault();seekRelative(-10);return;}
+    if(key==='l'){event.preventDefault();seekRelative(10);return;}
+    if(key==='m'){event.preventDefault();muteButton.click();return;}
+    if(key==='f'){event.preventDefault();fullscreenButton.click();}
+  });
+
+  document.addEventListener('contextmenu',e=>e.preventDefault());
+  document.addEventListener('dragstart',e=>e.preventDefault());
+  document.addEventListener('selectstart',e=>{if(e.target instanceof Element&&e.target.closest('.sv-shell'))e.preventDefault();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&ready&&isPlaying())call('pauseVideo');});
+  window.addEventListener('beforeunload',()=>window.clearInterval(updateTimer));
+
+  enableControls(false);
+  loadApi();
+  window.setTimeout(()=>{if(!ready)showStatus('El reproductor está tardando demasiado. Recarga la clase si no inicia.',0);},12000);
+})();
+</script>
+</body>
+</html>

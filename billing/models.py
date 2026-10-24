@@ -53,8 +53,10 @@ class Payment(models.Model):
         BANK = 'BANK', 'Transferencia bancaria'
         WHATSAPP = 'WHATSAPP', 'Reportado por WhatsApp'
         MANUAL = 'MANUAL', 'Registro manual'
-        PAYPHONE = 'PAYPHONE', 'PayPhone (futuro)'
-        PAYPAL = 'PAYPAL', 'PayPal (futuro)'
+        PAYPHONE = 'PAYPHONE', 'PayPhone'
+        PAYPAL = 'PAYPAL', 'PayPal'
+        CARD = 'CARD', 'Tarjeta mediante link'
+        PAYMENT_LINK = 'PAYMENT_LINK', 'Link de pago'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pendiente'

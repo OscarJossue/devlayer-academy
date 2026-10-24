@@ -1,0 +1,31 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Certificados · {{ course.title }}{% endblock %}
+{% block content %}
+<div class="sa-page-head">
+  <div><span class="eyebrow">CERTIFICADOS · CURSO</span><h1>{{ course.title }}</h1><p>Control de certificación y avance de los estudiantes exclusivamente de este curso.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:certificates' %}">← Todos los cursos</a><a class="btn btn-secondary btn-small" href="{% url 'superadmin:certificate_style' %}">Diseño del certificado</a></div>
+</div>
+
+<div class="sa-stat-grid compact-stats certificate-owner-stats">
+  <div class="sa-stat"><div><strong>{{ stats.students }}</strong><span>Estudiantes</span></div></div>
+  <div class="sa-stat"><div><strong>{{ stats.completed }}</strong><span>Curso completado</span></div></div>
+  <div class="sa-stat"><div><strong>{{ stats.issued }}</strong><span>Emitidos</span></div></div>
+  <div class="sa-stat"><div><strong>{{ stats.valid }}</strong><span>Válidos</span></div></div>
+  <div class="sa-stat"><div><strong>{{ stats.pending }}</strong><span>Pendientes</span></div></div>
+</div>
+
+<section class="sa-panel certificate-student-panel">
+  <div class="sa-panel-head"><div><span class="eyebrow">ESTUDIANTES</span><h2>Estado de certificación</h2><p>Progreso, finalización y certificado de cada matrícula de {{ course.title }}.</p></div><span class="sa-status ok">Certificado habilitado</span></div>
+  <div class="sa-table-wrap embedded-table"><table class="sa-table certificate-student-table"><thead><tr><th>Estudiante</th><th>Progreso</th><th>Curso</th><th>Certificado</th><th>Código</th><th>Emisión</th><th></th></tr></thead><tbody>
+  {% for row in rows %}<tr>
+    <td><strong>{{ row.enrollment.user.display_name }}</strong><small>{{ row.enrollment.user.email }}</small></td>
+    <td><strong>{{ row.progress }}%</strong><div class="mini-progress"><span style="width:{{ row.progress }}%"></span></div></td>
+    <td><span class="sa-status {% if row.completed %}ok{% elif row.progress %}warn{% endif %}">{% if row.completed %}Completado{% elif row.progress %}En proceso{% else %}Sin iniciar{% endif %}</span></td>
+    <td>{% if row.certificate %}<span class="sa-status {% if row.certificate.status == 'VALID' %}ok{% else %}danger{% endif %}">{{ row.certificate.get_status_display }}</span>{% elif row.completed %}<span class="sa-status warn">Pendiente de emisión</span>{% else %}<span class="muted">Aún no corresponde</span>{% endif %}</td>
+    <td>{% if row.certificate %}<strong>{{ row.certificate.code }}</strong>{% else %}—{% endif %}</td>
+    <td>{% if row.certificate %}{{ row.certificate.issued_at|date:'d/m/Y H:i' }}{% else %}—{% endif %}</td>
+    <td>{% if row.certificate %}<a class="sa-action" href="{% url 'certificates:pdf' row.certificate.code %}" target="_blank" rel="noopener">Ver PDF</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="7">Este curso todavía no tiene estudiantes matriculados.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

@@ -1,41 +1,75 @@
-<aside class="course-sidebar">
-  <a class="sidebar-back" href="{% url 'learning:dashboard' %}">← Volver a mis cursos</a>
+{% load static %}
+<aside class="course-sidebar {% if professor_student_preview %}course-sidebar-preview{% endif %}">
+  {% if professor_student_preview %}
+    <a class="sidebar-back" href="{% url 'catalog:professor_course_edit' course.id %}"><svg><use href="{% static 'icons/sprite.svg' %}#chevron-left"></use></svg><span>Salir de vista estudiante</span></a>
+  {% else %}
+    <a class="sidebar-back" href="{% url 'learning:my_courses' %}"><svg><use href="{% static 'icons/sprite.svg' %}#chevron-left"></use></svg><span>Volver a mis cursos</span></a>
+  {% endif %}
   <h2>{{ course.title }}</h2>
-  <small>{{ course_progress_percentage }}% completado</small>
-  <div class="course-sidebar-progress"><div class="progress"><span style="width: {{ course_progress_percentage }}%"></span></div></div>
+  {% if professor_student_preview %}
+    <div class="course-preview-state"><small>MODO DE PRUEBA</small><strong>Navegación libre</strong></div>
+    <div class="course-sidebar-progress preview-progress"><div class="progress"><span style="width:100%"></span></div></div>
+  {% else %}
+    <div class="course-progress-copy"><small>Progreso del curso</small><strong>{{ course_progress_percentage }}%</strong></div>
+    <div class="course-sidebar-progress"><div class="progress"><span style="width: {{ course_progress_percentage }}%"></span></div></div>
+  {% endif %}
 
   <div class="lesson-nav">
     {% for module in course_nav_modules %}
       <div class="nav-module">
         <strong>Módulo {{ module.order }} · {{ module.title }}</strong>
         {% for item in module.nav_lessons %}
-          {% if item.student_can_open %}
-            <a class="lesson-nav-item {% if item.id == active_lesson_id %}active{% endif %} {% if item.student_completed %}completed{% endif %}" href="{% url 'learning:lesson' course.slug item.id %}">
-              <span class="lesson-order">{% if item.student_completed %}✓{% else %}{{ item.order }}{% endif %}</span><span>{{ item.title }}</span>
+          {% if professor_student_preview %}
+            <a class="lesson-nav-item {% if item.id == active_lesson_id %}active{% endif %}" href="{% url 'catalog:professor_student_preview_lesson' course.id item.id %}" {% if item.id == active_lesson_id %}aria-current="step"{% endif %}>
+              <span class="lesson-order">{{ item.order }}</span><span>{{ item.title }}</span>
+            </a>
+          {% elif item.student_can_open %}
+            <a class="lesson-nav-item {% if item.id == active_lesson_id %}active{% endif %} {% if item.student_completed %}completed{% endif %}" href="{% url 'learning:lesson' course.slug item.id %}" {% if item.id == active_lesson_id %}aria-current="step"{% endif %}>
+              <span class="lesson-order">{% if item.student_completed %}<svg><use href="{% static 'icons/sprite.svg' %}#check-circle"></use></svg>{% else %}{{ item.order }}{% endif %}</span><span>{{ item.title }}</span>
             </a>
           {% else %}
-            <div class="lesson-nav-item locked" aria-label="Contenido bloqueado"><span class="lesson-order">🔒</span><span>{{ item.title }}</span></div>
+            <div class="lesson-nav-item locked" aria-label="Contenido bloqueado" title="Completa el paso anterior para desbloquear esta clase"><span class="lesson-order"><svg><use href="{% static 'icons/sprite.svg' %}#lock"></use></svg></span><span>{{ item.title }}</span></div>
           {% endif %}
         {% endfor %}
         {% for quiz in module.nav_quizzes %}
-          <a class="quiz-link {% if quiz.id == active_quiz_id %}active{% endif %} {% if quiz.student_passed %}completed{% endif %}" href="{% url 'assessments:take' quiz.id %}">
-            <span class="lesson-order">{% if quiz.student_passed %}✓{% else %}Q{% endif %}</span><span>{{ quiz.title }}</span>
-          </a>
+          {% if professor_student_preview %}
+            <a class="quiz-link lesson-nav-item {% if quiz.id == active_quiz_id %}active{% endif %}" href="{% url 'catalog:professor_student_preview_quiz' course.id quiz.id %}" {% if quiz.id == active_quiz_id %}aria-current="step"{% endif %}>
+              <span class="lesson-order"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><span>{{ quiz.title }}</span>
+            </a>
+          {% elif quiz.student_can_open %}
+            <a class="quiz-link lesson-nav-item {% if quiz.id == active_quiz_id %}active{% endif %} {% if quiz.student_passed %}completed{% endif %}" href="{% if quiz.student_passed and quiz.student_result_attempt_id %}{% url 'assessments:result' quiz.student_result_attempt_id %}{% else %}{% url 'assessments:take' quiz.id %}{% endif %}" {% if quiz.id == active_quiz_id %}aria-current="step"{% endif %}>
+              <span class="lesson-order">{% if quiz.student_passed %}<svg><use href="{% static 'icons/sprite.svg' %}#check-circle"></use></svg>{% else %}<svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg>{% endif %}</span><span>{{ quiz.title }}</span>
+            </a>
+          {% else %}
+            <div class="quiz-link lesson-nav-item locked" aria-label="Evaluación bloqueada" title="{{ quiz.student_lock_reason }}"><span class="lesson-order"><svg><use href="{% static 'icons/sprite.svg' %}#lock"></use></svg></span><span>{{ quiz.title }}</span></div>
+          {% endif %}
         {% endfor %}
       </div>
     {% endfor %}
 
     {% for quiz in course_nav_final_quizzes %}
-      <a class="final-exam quiz-link {% if quiz.id == active_quiz_id %}active{% endif %} {% if quiz.student_passed %}completed{% endif %}" href="{% url 'assessments:take' quiz.id %}">
-        <span class="lesson-order">{% if quiz.student_passed %}✓{% else %}F{% endif %}</span><span>{{ quiz.title }}</span>
-      </a>
+      {% if professor_student_preview %}
+        <a class="final-exam quiz-link lesson-nav-item {% if quiz.id == active_quiz_id %}active{% endif %}" href="{% url 'catalog:professor_student_preview_quiz' course.id quiz.id %}" {% if quiz.id == active_quiz_id %}aria-current="step"{% endif %}>
+          <span class="lesson-order"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><span>{{ quiz.title }}</span>
+        </a>
+      {% elif quiz.student_can_open %}
+        <a class="final-exam quiz-link lesson-nav-item {% if quiz.id == active_quiz_id %}active{% endif %} {% if quiz.student_passed %}completed{% endif %}" href="{% if quiz.student_passed and quiz.student_result_attempt_id %}{% url 'assessments:result' quiz.student_result_attempt_id %}{% else %}{% url 'assessments:take' quiz.id %}{% endif %}" {% if quiz.id == active_quiz_id %}aria-current="step"{% endif %}>
+          <span class="lesson-order">{% if quiz.student_passed %}<svg><use href="{% static 'icons/sprite.svg' %}#check-circle"></use></svg>{% else %}<svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg>{% endif %}</span><span>{{ quiz.title }}</span>
+        </a>
+      {% else %}
+        <div class="final-exam quiz-link lesson-nav-item locked" aria-label="Examen final bloqueado" title="{{ quiz.student_lock_reason }}"><span class="lesson-order"><svg><use href="{% static 'icons/sprite.svg' %}#lock"></use></svg></span><span>{{ quiz.title }}</span></div>
+      {% endif %}
     {% endfor %}
 
     {% if course.masterclass_enabled %}
-      <a class="masterclass-link lesson-nav-item {% if active_masterclass %}active{% endif %}" href="{% url 'learning:masterclass' course.slug %}">
+      <a class="masterclass-link lesson-nav-item {% if active_masterclass %}active{% endif %}" href="{% if professor_student_preview %}{% url 'catalog:professor_student_preview_masterclass' course.id %}{% else %}{% url 'learning:masterclass' course.slug %}{% endif %}" {% if active_masterclass %}aria-current="step"{% endif %}>
         <span class="lesson-order">LIVE</span><span>{{ course.masterclass_title|default:'Clase magistral' }}</span>
       </a>
     {% endif %}
   </div>
-  <p class="course-sidebar-note">Puedes volver a revisar la teoría ya desbloqueada aunque estés realizando un cuestionario.</p>
+  {% if professor_student_preview %}
+    <p class="course-sidebar-note preview-sidebar-note"><strong>Vista de prueba.</strong> Puedes abrir cualquier paso para revisarlo. Nada de lo que hagas aquí modifica el progreso de estudiantes.</p>
+  {% else %}
+    <p class="course-sidebar-note">Puedes volver a cualquier teoría ya desbloqueada. El examen final se habilita únicamente al completar y aprobar los pasos requeridos.</p>
+  {% endif %}
 </aside>

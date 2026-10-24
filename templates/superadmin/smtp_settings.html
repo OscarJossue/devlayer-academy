@@ -1,55 +1,28 @@
 {% extends 'base.html' %}
-{% load static %}
-{% block title %}Correo SMTP · {{ academy.name }}{% endblock %}
+{% block title %}Correo · {{ request.academy.name }}{% endblock %}
 {% block content %}
 <section class="admin-page compact-page">
-  <div class="page-heading compact-heading">
-    <div>
-      <span class="eyebrow">CORREO DE LA ACADEMIA</span>
-      <h1>Servidor SMTP</h1>
-      <p>Configura solo los datos entregados por tu proveedor. Los correos de verificación, recuperación, pagos y certificados usarán la identidad de {{ academy.name }}.</p>
-    </div>
-  </div>
+  <div class="sa-page-head"><div><span class="eyebrow">CORREO DE LA ACADEMIA</span><h1>Configuración de correo</h1><p>Elige la opción más simple. Si no tienes dominio propio, DevLayer Studio enviará verificaciones, recuperación de contraseña y notificaciones automáticamente.</p></div></div>
 
-  <div class="smtp-simple-grid">
-    <section class="panel settings-panel">
-      <div class="settings-panel-head">
-        <span class="eyebrow">ESTADO</span>
-        <h2>{% if academy.smtp_configured %}Correo configurado{% else %}Correo pendiente{% endif %}</h2>
-      </div>
-      {% if academy.smtp_configured %}
-        <div class="form-help-box success-box">
-          <strong>{{ academy.smtp_from_name|default:academy.name }}</strong>
-          <p>{{ academy.smtp_username }} · {{ academy.smtp_host }}:{{ academy.smtp_port }}</p>
-        </div>
-      {% else %}
-        <div class="form-help-box">
-          <strong>Sin configurar</strong>
-          <p>Completa servidor, puerto, usuario, contraseña y nombre del remitente.</p>
-        </div>
-      {% endif %}
-      <div class="smtp-flow"><span>Servidor</span><b>→</b><span>Puerto</span><b>→</b><span>Usuario</span><b>→</b><span>Contraseña</span><b>→</b><span>Remitente</span></div>
-      <div class="form-help-box" style="margin-top:14px">
-        <strong>Puertos soportados</strong>
-        <p><b>465</b> usa SSL. <b>587</b> usa STARTTLS. Academy configura esto automáticamente según tu selección.</p>
-      </div>
+  <div class="mail-mode-grid">
+    <section class="panel mail-mode-card {% if using_default_mail %}is-selected{% endif %}">
+      <span class="mail-mode-icon">✓</span>
+      <div><span class="eyebrow">RECOMENDADO</span><h2>Usar configuración predeterminada</h2><p>No necesitas servidor, contraseña ni dominio. El sistema usa el correo transaccional de DevLayer Studio configurado por el administrador maestro, sin mostrar sus credenciales.</p></div>
+      <div class="mail-mode-status"><span class="sa-status {% if platform_mail_ready %}ok{% else %}danger{% endif %}">{% if platform_mail_ready %}Disponible{% else %}No disponible{% endif %}</span>{% if using_default_mail %}<strong>En uso</strong>{% endif %}</div>
+      <form method="post">{% csrf_token %}<button class="btn {% if using_default_mail %}btn-secondary{% endif %}" name="action" value="default" type="submit">{% if using_default_mail %}Configuración predeterminada activa{% else %}Usar configuración predeterminada{% endif %}</button></form>
     </section>
 
-    <section class="panel settings-panel">
-      <form method="post" class="form-stack">{% csrf_token %}
-        {% include 'partials/form_fields.html' with form=form %}
-        <div class="page-actions align-start">
-          <button class="btn" name="action" value="save" type="submit">Guardar configuración</button>
-          <button class="btn btn-secondary" name="action" value="test" type="submit">Guardar y enviar prueba</button>
-        </div>
-      </form>
-      {% if academy.smtp_enabled %}
-        <form method="post" style="margin-top:12px">{% csrf_token %}
-          <button class="btn btn-danger btn-small" name="action" value="disable" type="submit">Desactivar correos</button>
-        </form>
-      {% endif %}
-      <p class="muted small-text">La dirección escrita en “Correo para enviar una prueba” solo recibe el test y no se guarda. La contraseña SMTP permanece cifrada.</p>
+    <section class="panel mail-mode-card {% if not using_default_mail %}is-selected{% endif %}">
+      <span class="mail-mode-icon">@</span>
+      <div><span class="eyebrow">DOMINIO PROPIO</span><h2>Enviar desde tu dominio</h2><p>Configura esta opción únicamente si tu academia ya tiene una cuenta de correo y credenciales SMTP propias.</p></div>
+      <div class="mail-mode-status">{% if not using_default_mail %}<span class="sa-status ok">En uso</span><strong>{{ academy.smtp_username }}</strong>{% else %}<span class="sa-status">Opcional</span>{% endif %}</div>
     </section>
   </div>
+
+  <details class="panel custom-smtp-panel" {% if not using_default_mail %}open{% endif %}>
+    <summary><div><span class="eyebrow">CONFIGURACIÓN AVANZADA</span><h2>Configurar dominio propio</h2><p>Abre esta sección solo si tu proveedor te entregó servidor, puerto, usuario y contraseña SMTP.</p></div><span class="details-chevron">⌄</span></summary>
+    <form method="post" class="form-stack custom-smtp-form">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<div class="page-actions align-start"><button class="btn" name="action" value="save" type="submit">Guardar dominio propio</button><button class="btn btn-secondary" name="action" value="test" type="submit">Guardar y enviar prueba</button></div></form>
+    <p class="muted small-text">La contraseña queda cifrada. El correo de prueba no se guarda.</p>
+  </details>
 </section>
 {% endblock %}

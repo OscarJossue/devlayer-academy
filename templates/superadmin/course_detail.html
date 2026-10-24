@@ -1,17 +1,21 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}{{ course.title }} · Administración{% endblock %}
 {% block content %}
-<div class="sa-page-head">
+<div class="sa-page-head owner-course-head">
   <div><span class="eyebrow">CENTRO DE CONTROL DEL CURSO</span><h1>{{ course.title }}</h1><p>{{ course.category.name }} · {{ course.get_status_display }} · creado por {{ course.created_by.display_name }}</p></div>
-  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:courses' %}">Volver</a><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' course.id %}">Editar contenido</a></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:courses' %}">← Cursos</a><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' course.id %}">Editar contenido</a></div>
 </div>
 
-<section class="sa-panel course-workflow-panel">
-  <div class="sa-panel-head"><div><span class="eyebrow">PUBLICACIÓN</span><h2>Aprobación del curso</h2><p>Las decisiones de publicación se realizan aquí, dentro del curso, no desde una lista global.</p></div><span class="sa-status {% if course.status == 'PUBLISHED' or course.status == 'APPROVED' %}ok{% elif course.status == 'REVIEW' %}warn{% else %}danger{% endif %}">{{ course.get_status_display }}</span></div>
+<nav class="owner-course-tabs" aria-label="Secciones del curso">
+  <a href="#resumen">Resumen</a><a href="#estudiantes">Estudiantes</a><a href="#pagos">Pagos{% if summary.pending_payments %}<span>{{ summary.pending_payments }}</span>{% endif %}</a><a href="#profesores">Profesores</a><a href="#configuracion">Configuración</a>
+</nav>
+
+<section class="sa-panel course-workflow-panel" id="resumen">
+  <div class="sa-panel-head"><div><span class="eyebrow">PUBLICACIÓN</span><h2>Aprobación del curso</h2><p>Publicación y estado general de este curso en un solo lugar.</p></div><span class="sa-status {% if course.status == 'PUBLISHED' or course.status == 'APPROVED' %}ok{% elif course.status == 'REVIEW' %}warn{% else %}danger{% endif %}">{{ course.get_status_display }}</span></div>
   <form method="post" action="{% url 'superadmin:course_action' course.id %}" class="sa-actions">{% csrf_token %}{% if course.status != 'PUBLISHED' %}<button class="sa-action primary" name="action" value="publish" type="submit">Aprobar y publicar</button>{% endif %}<button class="sa-action" name="action" value="changes" type="submit">Pedir cambios</button>{% if course.status != 'PAUSED' %}<button class="sa-action danger" name="action" value="pause" type="submit">Pausar</button>{% endif %}</form>
 </section>
 
-<div class="sa-stat-grid compact-stats">
+<div class="sa-stat-grid compact-stats owner-course-stats">
   <div class="sa-stat"><div><strong>{{ summary.total }}</strong><span>Con acceso</span></div></div>
   <div class="sa-stat"><div><strong>{{ summary.pending_payments }}</strong><span>Pagos por revisar</span></div></div>
   <div class="sa-stat"><div><strong>{{ summary.in_progress }}</strong><span>En proceso</span></div></div>
@@ -19,8 +23,22 @@
   <div class="sa-stat"><div><strong>{{ summary.blocked }}</strong><span>Bloqueados</span></div></div>
 </div>
 
-<section class="sa-panel course-payments-panel">
-  <div class="sa-panel-head"><div><span class="eyebrow">SOLICITUDES DE ACCESO</span><h2>Pagos de este curso</h2><p>Cuando un estudiante registra un comprobante, aparece aquí. Al aprobarlo, Academy habilita automáticamente la matrícula y el contenido de este curso.</p></div></div>
+<section class="sa-panel course-users-panel" id="estudiantes">
+  <div class="sa-panel-head"><div><span class="eyebrow">ESTUDIANTES</span><h2>Cuenta, acceso y progreso</h2><p>Una única lista para este curso. Ya no se repiten estudiantes en un segundo bloque de seguimiento.</p></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:course_enrollment_create' course.id %}">Habilitar estudiante manualmente</a></div>
+  <div class="sa-table-wrap embedded-table"><table class="sa-table owner-course-students-table"><thead><tr><th>Estudiante</th><th>Correo</th><th>Cuenta</th><th>Acceso al curso</th><th>Progreso</th><th>Acciones</th></tr></thead><tbody>
+  {% for row in course_students %}<tr>
+    <td><strong>{{ row.user.display_name }}</strong><small>{{ row.relation }}</small></td>
+    <td><div class="verification-cell"><span class="verification-dot {% if row.user.email_verified %}is-verified{% else %}is-pending{% endif %}">✓</span><span>{% if row.user.email_verified %}Verificado{% else %}Pendiente{% endif %}</span></div><small>{{ row.user.email }}</small></td>
+    <td>{% if row.membership %}<span class="sa-status {% if row.membership.status == 'ACTIVE' %}ok{% else %}danger{% endif %}">{{ row.membership.get_status_display }}</span>{% else %}<span class="muted">Sin membresía</span>{% endif %}</td>
+    <td>{% if row.enrollment %}<a class="sa-action" href="{% url 'superadmin:enrollment_edit' row.enrollment.id %}">{{ row.enrollment.get_status_display }}</a>{% elif row.payment and row.payment.status == 'PENDING' %}<span class="sa-status warn">Pago por aprobar</span>{% else %}<span class="muted">Sin matrícula</span>{% endif %}</td>
+    <td><strong>{{ row.progress }}%</strong><div class="mini-progress"><span style="width:{{ row.progress }}%"></span></div></td>
+    <td><div class="sa-actions course-user-actions">{% if not row.user.email_verified %}<form method="post" action="{% url 'superadmin:course_user_action' course.id row.user.id %}">{% csrf_token %}<button class="sa-action" name="action" value="resend_verification" type="submit">Reenviar verificación</button></form>{% endif %}{% if row.membership and row.membership.role != 'OWNER' %}<form method="post" action="{% url 'superadmin:course_user_action' course.id row.user.id %}">{% csrf_token %}{% if row.membership.status == 'ACTIVE' %}<button class="sa-action danger" name="action" value="disable" type="submit">Suspender cuenta</button>{% else %}<button class="sa-action primary" name="action" value="enable" type="submit">Habilitar cuenta</button>{% endif %}</form>{% endif %}</div></td>
+  </tr>{% empty %}<tr><td colspan="6">Todavía no hay estudiantes ni solicitudes relacionadas con este curso.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+
+<section class="sa-panel course-payments-panel" id="pagos">
+  <div class="sa-panel-head"><div><span class="eyebrow">PAGOS DEL CURSO</span><h2>Comprobantes y solicitudes de acceso</h2><p>Solo aparecen pagos vinculados a {{ course.title }}. Al aprobar un pago se habilita la matrícula correspondiente.</p></div></div>
   <div class="sa-table-wrap embedded-table"><table class="sa-table"><thead><tr><th>Estudiante</th><th>Orden</th><th>Comprobante</th><th>Monto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
   {% for payment in course_payments %}<tr>
     <td><strong>{{ payment.order.user.display_name }}</strong><small>{{ payment.order.user.email }}</small></td>
@@ -28,34 +46,16 @@
     <td>{% if payment.proof %}<a class="sa-action" target="_blank" rel="noopener" href="{% url 'billing:payment_proof' payment.id %}">Ver comprobante</a>{% elif payment.reference %}<span>{{ payment.reference }}</span>{% else %}<span class="muted">Sin archivo</span>{% endif %}</td>
     <td>${{ payment.amount }} {{ payment.order.currency }}</td>
     <td><span class="sa-status {% if payment.status == 'APPROVED' %}ok{% elif payment.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ payment.get_status_display }}</span></td>
-    <td>{% if payment.status == 'PENDING' %}<form method="post" action="{% url 'superadmin:course_payment_action' course.id payment.id %}" class="sa-actions">{% csrf_token %}<button class="sa-action primary" name="action" value="approve" type="submit">Aprobar acceso</button><button class="sa-action danger" name="action" value="reject" type="submit">Rechazar</button></form>{% elif payment.status == 'APPROVED' %}<span class="sa-status ok">Curso habilitado</span>{% else %}<span class="muted">Sin acción</span>{% endif %}</td>
+    <td>{% if payment.status == 'PENDING' %}<form method="post" action="{% url 'superadmin:course_payment_action' course.id payment.id %}" class="sa-actions">{% csrf_token %}<button class="sa-action primary" name="action" value="approve" type="submit">Aprobar acceso</button><button class="sa-action danger" name="action" value="reject" type="submit">Rechazar</button></form>{% elif payment.status == 'APPROVED' %}<span class="sa-status ok">Curso habilitado</span>{% else %}<span class="muted">Procesado</span>{% endif %}</td>
   </tr>{% empty %}<tr><td colspan="6">Todavía no hay pagos registrados para este curso.</td></tr>{% endfor %}
   </tbody></table></div>
 </section>
 
-<section class="sa-panel course-users-panel">
-  <div class="sa-panel-head"><div><span class="eyebrow">USUARIOS DEL CURSO</span><h2>Personas, estado y acceso</h2><p>Todo lo relacionado con este curso queda aquí: profesores, estudiantes, pagos pendientes, cuenta y matrícula.</p></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:course_enrollment_create' course.id %}">Habilitar estudiante manualmente</a></div>
-  <div class="sa-table-wrap embedded-table"><table class="sa-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Correo</th><th>Relación</th><th>Cuenta</th><th>Acceso al curso</th><th>Acciones rápidas</th></tr></thead><tbody>
-  {% for row in course_users %}<tr>
-    <td><strong>{{ row.user.display_name }}</strong><small>{{ row.user.email }}</small></td>
-    <td>{% if row.membership %}{{ row.membership.get_role_display }}{% else %}—{% endif %}</td>
-    <td>{% if row.user.email_verified %}<span class="sa-status ok">Verificado</span>{% else %}<span class="sa-status warn">Sin verificar</span>{% endif %}</td>
-    <td>{{ row.relation }}</td>
-    <td>{% if row.membership %}<span class="sa-status {% if row.membership.status == 'ACTIVE' %}ok{% else %}danger{% endif %}">{{ row.membership.get_status_display }}</span>{% else %}—{% endif %}</td>
-    <td>{% if row.enrollment %}<a class="sa-action" href="{% url 'superadmin:enrollment_edit' row.enrollment.id %}">{{ row.enrollment.get_status_display }}</a>{% elif row.payment and row.payment.status == 'PENDING' %}<span class="sa-status warn">Pago por aprobar</span>{% else %}<span class="muted">Sin matrícula</span>{% endif %}</td>
-    <td><div class="sa-actions course-user-actions">{% if not row.user.email_verified %}<form method="post" action="{% url 'superadmin:course_user_action' course.id row.user.id %}">{% csrf_token %}<button class="sa-action" name="action" value="resend_verification" type="submit">Reenviar verificación</button></form>{% endif %}{% if row.membership and row.membership.role != 'OWNER' %}<form method="post" action="{% url 'superadmin:course_user_action' course.id row.user.id %}">{% csrf_token %}{% if row.membership.status == 'ACTIVE' %}<button class="sa-action danger" name="action" value="disable" type="submit">Suspender cuenta</button>{% else %}<button class="sa-action primary" name="action" value="enable" type="submit">Habilitar cuenta</button>{% endif %}</form>{% endif %}</div></td>
-  </tr>{% empty %}<tr><td colspan="7">Todavía no hay usuarios asociados a este curso.</td></tr>{% endfor %}
-  </tbody></table></div>
-</section>
-
 <div class="sa-grid-2 course-admin-grid">
-  <section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">PROFESORES</span><h2>Equipo del curso</h2></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:user_create' %}?course={{ course.id }}&role=PROFESSOR">+ Crear profesor</a></div>
+  <section class="sa-panel" id="profesores"><div class="sa-panel-head"><div><span class="eyebrow">PROFESORES</span><h2>Equipo del curso</h2><p>Docentes asignados únicamente a este curso.</p></div><a class="btn btn-secondary btn-small" href="{% url 'superadmin:user_create' %}?course={{ course.id }}&role=PROFESSOR">+ Crear profesor</a></div>
     <div class="sa-list">{% for link in course.instructor_links.all %}<div class="sa-list-row"><div><strong>{{ link.user.display_name }}</strong><span>{{ link.user.email }}{% if link.is_owner %} · Profesor principal{% endif %}</span></div><form method="post" action="{% url 'superadmin:course_professor_remove' course.id link.user.id %}">{% csrf_token %}<button class="sa-action danger" type="submit">Retirar</button></form></div>{% empty %}<div class="empty">No hay profesores asignados.</div>{% endfor %}</div>
     <form method="post" class="inline-assignment-form">{% csrf_token %}<input type="hidden" name="action" value="add_professor"><select name="professor_id" required><option value="">Selecciona un profesor activo</option>{% for professor in available_professors %}<option value="{{ professor.id }}">{{ professor.display_name }} · {{ professor.email }}</option>{% endfor %}</select><button class="btn btn-small" type="submit">Asignar profesor</button></form>
   </section>
-  <section class="sa-panel"><span class="eyebrow">CONFIGURACIÓN</span><h2>Cómo funciona este curso</h2><div class="profile-facts"><div><span>Duración</span><strong>{{ course.estimated_duration_label }}</strong></div><div><span>Aprendizaje</span><strong>{% if course.sequential_learning %}Secuencial{% else %}Libre{% endif %}</strong></div><div><span>Nota mínima</span><strong>{{ course.default_pass_percentage }}%</strong></div><div><span>Tipo de acceso</span><strong>{{ course.get_access_type_display }}</strong></div><div><span>Módulos</span><strong>{{ course.modules.count }}</strong></div><div><span>Evaluaciones</span><strong>{{ course.quizzes.count }}</strong></div><div><span>Certificado</span><strong>{% if course.certificate_enabled %}Sí · {{ course.get_certificate_style_mode_display }}{% else %}No{% endif %}</strong></div><div><span>Clase magistral</span><strong>{% if course.masterclass_enabled %}Sí{% if course.masterclass_scheduled_at %} · {{ course.masterclass_scheduled_at|date:'d/m H:i' }}{% endif %}{% else %}No{% endif %}</strong></div></div></section>
+  <section class="sa-panel" id="configuracion"><span class="eyebrow">CONFIGURACIÓN</span><h2>Cómo funciona este curso</h2><div class="profile-facts"><div><span>Duración</span><strong>{{ course.estimated_duration_label }}</strong></div><div><span>Aprendizaje</span><strong>{% if course.sequential_learning %}Secuencial{% else %}Libre{% endif %}</strong></div><div><span>Nota mínima</span><strong>{{ course.default_pass_percentage }}%</strong></div><div><span>Tipo de acceso</span><strong>{{ course.get_access_type_display }}</strong></div><div><span>Módulos</span><strong>{{ course.modules.count }}</strong></div><div><span>Evaluaciones</span><strong>{{ course.quizzes.count }}</strong></div><div><span>Certificado</span><strong>{% if course.certificate_enabled %}Sí · diseño de la academia{% else %}No{% endif %}</strong></div><div><span>Clase magistral</span><strong>{% if course.masterclass_enabled %}Sí{% if course.masterclass_scheduled_at %} · {{ course.masterclass_scheduled_at|date:'d/m H:i' }}{% endif %}{% else %}No{% endif %}</strong></div></div></section>
 </div>
-
-<section class="sa-panel"><div class="sa-panel-head"><div><span class="eyebrow">SEGUIMIENTO</span><h2>Progreso de estudiantes con acceso</h2></div></div>
-<div class="sa-table-wrap embedded-table"><table class="sa-table"><thead><tr><th>Estudiante</th><th>Progreso</th><th>Situación</th><th>Acceso</th><th>Vencimiento</th><th></th></tr></thead><tbody>{% for row in summary.rows %}<tr><td><strong>{{ row.enrollment.user.display_name }}</strong><small>{{ row.enrollment.user.email }}</small></td><td><strong>{{ row.progress }}%</strong><div class="mini-progress"><span style="width:{{ row.progress }}%"></span></div></td><td><span class="sa-status {% if row.stage == 'completed' %}ok{% elif row.stage == 'blocked' %}danger{% elif row.stage == 'progress' %}warn{% endif %}">{{ row.stage_label }}</span></td><td>{{ row.enrollment.get_status_display }}</td><td>{{ row.enrollment.expires_at|date:'d/m/Y'|default:'Sin vencimiento' }}</td><td><a class="sa-action" href="{% url 'superadmin:enrollment_edit' row.enrollment.id %}">Editar acceso</a></td></tr>{% empty %}<tr><td colspan="6">Todavía no hay estudiantes con acceso habilitado.</td></tr>{% endfor %}</tbody></table></div></section>
 {% endblock %}

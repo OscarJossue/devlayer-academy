@@ -7,21 +7,19 @@ from .pdf_tools import PDFMaterialError, optimize_pdf_upload
 class CourseForm(forms.ModelForm):
     def __init__(self, *args, academy=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category'].queryset = scope_categories(Category.objects.filter(is_active=True), academy) if academy else Category.objects.none()
-        # En cursos nuevos la certificación debe ser una decisión explícita del profesor.
-        if not getattr(self.instance, 'pk', None) and not self.is_bound:
-            self.fields['certificate_enabled'].initial = False
-            self.fields['certificate_style_mode'].initial = Course.CertificateStyleMode.ACADEMY
+        self.fields['category'].queryset = (
+            scope_categories(Category.objects.filter(is_active=True), academy)
+            if academy else Category.objects.none()
+        )
 
     def clean(self):
         cleaned = super().clean()
-        certificate_enabled = (
-            cleaned.get('certificate_enabled')
-            if 'certificate_enabled' in self.fields
-            else getattr(self.instance, 'certificate_enabled', False)
-        )
+        certificate_enabled = (getattr(self.instance, 'certificate_enabled', False) if getattr(self.instance, 'pk', None) else False)
         if not certificate_enabled and cleaned.get('access_type') == Course.AccessType.UNTIL_CERTIFICATE:
-            self.add_error('access_type', 'El acceso “Hasta certificarse” requiere que el curso otorgue certificado.')
+            self.add_error(
+                'access_type',
+                'El acceso “Hasta certificarse” requiere habilitar primero el certificado en el apartado Certificación.',
+            )
         return cleaned
 
     class Meta:
@@ -31,7 +29,6 @@ class CourseForm(forms.ModelForm):
             'price', 'currency', 'sequential_learning', 'default_pass_percentage',
             'access_type', 'access_days', 'access_fixed_until',
             'post_certificate_policy', 'post_certificate_days', 'final_exam_required',
-            'certificate_enabled', 'certificate_style_mode',
         ]
         labels = {
             'title': 'Nombre del curso', 'short_description': 'Descripción corta', 'description': 'Descripción completa',
@@ -40,8 +37,6 @@ class CourseForm(forms.ModelForm):
             'access_type': 'Tipo de acceso', 'access_days': 'Días de acceso', 'access_fixed_until': 'Fecha límite de acceso',
             'post_certificate_policy': 'Acceso después de certificar', 'post_certificate_days': 'Días adicionales después de certificar',
             'final_exam_required': 'Examen final obligatorio',
-            'certificate_enabled': 'Este curso otorga certificado',
-            'certificate_style_mode': 'Diseño del certificado',
         }
         help_texts = {
             'title': 'Usa un nombre claro y corto. Ejemplo: Python desde cero.',
@@ -49,8 +44,7 @@ class CourseForm(forms.ModelForm):
             'thumbnail': 'Imagen horizontal recomendada: 1600 × 900 px.', 'price': 'Usa 0 para un curso gratuito.',
             'default_pass_percentage': 'Se usa cuando una evaluación no define su propia nota mínima.',
             'sequential_learning': 'Si está activo, el estudiante debe avanzar en el orden definido.',
-            'certificate_enabled': 'Si está desactivado, el curso termina sin generar certificado.',
-            'certificate_style_mode': 'Puedes usar el diseño general definido por el dueño o crear uno propio para este curso.',
+            'final_exam_required': 'La configuración detallada del examen se realiza únicamente en “Examen final”.',
         }
         widgets = {
             'title': forms.TextInput(attrs={'placeholder': 'Ej. Python desde cero'}),
@@ -59,6 +53,37 @@ class CourseForm(forms.ModelForm):
             'price': forms.NumberInput(attrs={'placeholder': '0.00', 'step': '0.01'}), 'currency': forms.TextInput(attrs={'placeholder': 'USD'}),
             'access_days': forms.NumberInput(attrs={'placeholder': 'Ej. 90'}), 'access_fixed_until': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'post_certificate_days': forms.NumberInput(attrs={'placeholder': 'Ej. 30'}),
+        }
+
+
+class ProfessorCategoryForm(forms.ModelForm):
+    def __init__(self, *args, academy=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.academy = academy
+        self.fields['parent'].queryset = (
+            scope_categories(Category.objects.filter(is_active=True), academy)
+            if academy else Category.objects.none()
+        )
+
+    def clean_name(self):
+        name = ' '.join((self.cleaned_data.get('name') or '').split()).strip()
+        if not name:
+            return name
+        if self.academy and scope_categories(Category.objects.all(), self.academy).filter(name__iexact=name).exists():
+            raise forms.ValidationError('Esta categoría ya existe. Selecciónala al crear o editar el curso.')
+        return name
+
+    class Meta:
+        model = Category
+        fields = ('name', 'description', 'parent')
+        labels = {
+            'name': 'Nombre de la categoría',
+            'description': 'Descripción breve',
+            'parent': 'Categoría superior (opcional)',
+        }
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'Ej. Marketing Digital'}),
+            'description': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Una descripción corta para organizar los cursos.'}),
         }
 
 
@@ -82,11 +107,33 @@ class ModuleForm(forms.ModelForm):
 
 
 class LessonForm(forms.ModelForm):
-    """Carga rápida: el PDF se conserva como PDF y se optimiza automáticamente."""
+    """Editor guiado de secciones dentro de un módulo."""
+
+    SECTION_VIDEO = 'VIDEO'
+    SECTION_PDF = 'PDF'
+    SECTION_INSTRUCTIONS = 'INSTRUCTIONS'
+    SECTION_CHOICES = [
+        (SECTION_VIDEO, 'Video'),
+        (SECTION_PDF, 'PDF'),
+        (SECTION_INSTRUCTIONS, 'Indicaciones'),
+    ]
+
+    section_type = forms.ChoiceField(
+        choices=SECTION_CHOICES,
+        label='Tipo de sección',
+        help_text='Elige un solo tipo principal para mantener el módulo ordenado y fácil de seguir.',
+    )
 
     def clean_material_pdf(self):
         upload = self.cleaned_data.get('material_pdf')
         if not upload:
+            return upload
+        if (
+            getattr(self.instance, 'pk', None)
+            and getattr(self.instance, 'material_pdf', None)
+            and getattr(upload, 'name', None) == getattr(self.instance.material_pdf, 'name', None)
+            and not getattr(upload, 'content_type', None)
+        ):
             return upload
         try:
             optimized, info = optimize_pdf_upload(upload)
@@ -95,33 +142,79 @@ class LessonForm(forms.ModelForm):
         self.pdf_optimization_info = info
         return optimized
 
+    def clean(self):
+        cleaned = super().clean()
+        section_type = cleaned.get('section_type')
+        video_source = (cleaned.get('video_source') or '').strip()
+        material_pdf = cleaned.get('material_pdf')
+        description = (cleaned.get('description') or '').strip()
+
+        if section_type == self.SECTION_VIDEO and not video_source:
+            self.add_error('video_source', 'Agrega la URL o ID del video para esta sección.')
+        elif section_type == self.SECTION_PDF:
+            has_existing_pdf = bool(getattr(self.instance, 'pk', None) and getattr(self.instance, 'material_pdf', None))
+            if not material_pdf and not has_existing_pdf:
+                self.add_error('material_pdf', 'Sube el PDF correspondiente a esta sección.')
+        elif section_type == self.SECTION_INSTRUCTIONS and not description:
+            self.add_error('description', 'Escribe las indicaciones que verá el estudiante.')
+        return cleaned
+
     class Meta:
         model = Lesson
         fields = ['title', 'video_source', 'material_pdf', 'duration_minutes', 'description']
         labels = {
-            'title': 'Nombre de la clase',
+            'title': 'Título de la sección',
             'video_source': 'Video de YouTube',
-            'material_pdf': 'PDF de apoyo',
+            'material_pdf': 'Archivo PDF',
             'duration_minutes': 'Duración aproximada',
-            'description': 'Resumen / indicaciones',
+            'description': 'Indicaciones / texto de apoyo',
         }
         help_texts = {
-            'video_source': 'Pega la URL o el ID de YouTube. Si lo dejas vacío, la clase puede ser solo material.',
-            'material_pdf': 'Sube el PDF original. Academy lo comprime automáticamente conservando páginas, diseño, imágenes y texto. No se convierte a texto y el alumno no recibe una descarga directa.',
-            'duration_minutes': 'Puedes dejar el valor sugerido y cambiarlo solo si lo necesitas.',
+            'video_source': 'Pega la URL o el ID de YouTube.',
+            'material_pdf': 'El PDF se optimiza sin convertirlo a texto y se mantiene protegido dentro del curso.',
+            'duration_minutes': 'Se usa en videos y PDFs para orientar al estudiante.',
+            'description': 'En una sección de Indicaciones este campo es obligatorio. En video o PDF puedes usarlo como nota breve.',
         }
         widgets = {
-            'title': forms.TextInput(attrs={'placeholder': 'Ej. Diseña una tienda que el cliente entienda'}),
+            'title': forms.TextInput(attrs={'placeholder': 'Ej. Introducción al módulo'}),
             'video_source': forms.TextInput(attrs={'placeholder': 'https://www.youtube.com/watch?v=...'}),
             'material_pdf': forms.ClearableFileInput(attrs={'accept': '.pdf,application/pdf'}),
             'duration_minutes': forms.NumberInput(attrs={'min': 0, 'placeholder': '15'}),
-            'description': forms.Textarea(attrs={'placeholder': 'Opcional: objetivos o indicaciones rápidas', 'rows': 3}),
+            'description': forms.Textarea(attrs={'placeholder': 'Escribe las indicaciones o una nota breve de apoyo', 'rows': 5}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.is_bound and not getattr(self.instance, 'pk', None):
-            self.fields['duration_minutes'].initial = 15
+        if not self.is_bound:
+            if getattr(self.instance, 'pk', None):
+                if self.instance.video_source:
+                    self.fields['section_type'].initial = self.SECTION_VIDEO
+                elif self.instance.material_pdf:
+                    self.fields['section_type'].initial = self.SECTION_PDF
+                else:
+                    self.fields['section_type'].initial = self.SECTION_INSTRUCTIONS
+            else:
+                self.fields['section_type'].initial = self.SECTION_VIDEO
+                self.fields['duration_minutes'].initial = 15
+
+    def save(self, commit=True):
+        lesson = super().save(commit=False)
+        section_type = self.cleaned_data.get('section_type')
+        if section_type == self.SECTION_VIDEO:
+            lesson.material_pdf = None
+            lesson.video_provider = Lesson.VideoProvider.YOUTUBE
+        elif section_type == self.SECTION_PDF:
+            lesson.video_source = ''
+            lesson.video_provider = Lesson.VideoProvider.NONE
+        else:
+            lesson.video_source = ''
+            lesson.video_provider = Lesson.VideoProvider.NONE
+            lesson.material_pdf = None
+            lesson.duration_minutes = 0
+        if commit:
+            lesson.save()
+            self.save_m2m()
+        return lesson
 
 
 class CourseMasterclassForm(forms.ModelForm):
@@ -167,65 +260,39 @@ class CourseContentImportForm(forms.Form):
     xlsx_file = forms.FileField(label='Archivo XLSX de contenido', help_text='El XLSX se lee para importar datos y luego se descarta.', widget=forms.ClearableFileInput(attrs={'accept': '.xlsx'}))
 
 
-class CourseCertificateStyleForm(forms.ModelForm):
-    class Meta:
-        model = Course
-        fields = [
-            'certificate_enabled', 'certificate_style_mode',
-            'certificate_custom_title', 'certificate_custom_subtitle', 'certificate_custom_body',
-            'certificate_custom_accent_color', 'certificate_custom_background_color', 'certificate_custom_text_color',
-            'certificate_custom_signature_name', 'certificate_custom_signature_role', 'certificate_custom_signature_image',
-            'certificate_custom_footer', 'certificate_custom_show_logo', 'certificate_custom_show_qr',
-        ]
-        labels = {
-            'certificate_enabled': 'Este curso otorga certificado',
-            'certificate_style_mode': 'Diseño a utilizar',
-            'certificate_custom_title': 'Título principal',
-            'certificate_custom_subtitle': 'Texto antes del estudiante',
-            'certificate_custom_body': 'Texto antes del curso',
-            'certificate_custom_accent_color': 'Color de acento',
-            'certificate_custom_background_color': 'Color de fondo',
-            'certificate_custom_text_color': 'Color del texto',
-            'certificate_custom_signature_name': 'Nombre de quien firma',
-            'certificate_custom_signature_role': 'Cargo de quien firma',
-            'certificate_custom_signature_image': 'Firma (imagen opcional)',
-            'certificate_custom_footer': 'Texto inferior',
-            'certificate_custom_show_logo': 'Mostrar logo de la academia',
-            'certificate_custom_show_qr': 'Mostrar QR de validación',
-        }
-        widgets = {
-            'certificate_custom_title': forms.TextInput(attrs={'placeholder': 'Vacío = usar valor de la academia'}),
-            'certificate_custom_subtitle': forms.TextInput(attrs={'placeholder': 'Vacío = usar valor de la academia'}),
-            'certificate_custom_body': forms.TextInput(attrs={'placeholder': 'Vacío = usar valor de la academia'}),
-            'certificate_custom_accent_color': forms.TextInput(attrs={'type': 'color'}),
-            'certificate_custom_background_color': forms.TextInput(attrs={'type': 'color'}),
-            'certificate_custom_text_color': forms.TextInput(attrs={'type': 'color'}),
-            'certificate_custom_signature_name': forms.TextInput(attrs={'placeholder': 'Vacío = usar firma de la academia'}),
-            'certificate_custom_signature_role': forms.TextInput(attrs={'placeholder': 'Vacío = usar cargo de la academia'}),
-            'certificate_custom_signature_image': forms.FileInput(attrs={'accept': 'image/png,image/jpeg,image/webp'}),
-            'certificate_custom_footer': forms.TextInput(attrs={'placeholder': 'Vacío = usar texto de la academia'}),
-        }
+class ProfessorCertificateToggleForm(forms.Form):
+    """El profesor solo decide si el curso entrega certificado.
 
-    def __init__(self, *args, academy=None, **kwargs):
-        self.academy = academy
+    El diseño, textos, colores, firma y demás parámetros pertenecen a la
+    configuración de la academia y los administra exclusivamente el dueño.
+    """
+    certificate_enabled = forms.ChoiceField(
+        choices=[('1', 'Sí'), ('0', 'No')],
+        label='¿Este curso entrega certificado?',
+        help_text='El diseño del certificado lo configura el dueño de la academia.',
+        widget=forms.Select(attrs={'class': 'certificate-simple-select'}),
+    )
+
+    def __init__(self, *args, course=None, **kwargs):
+        self.course = course
+        if course is not None and 'initial' not in kwargs:
+            kwargs['initial'] = {'certificate_enabled': '1' if course.certificate_enabled else '0'}
         super().__init__(*args, **kwargs)
-        if self.instance:
-            defaults = {
-                'certificate_custom_accent_color': getattr(academy, 'certificate_accent_color', '') or getattr(academy, 'brand_color', '#1458D6'),
-                'certificate_custom_background_color': getattr(academy, 'certificate_background_color', '#FFFFFF'),
-                'certificate_custom_text_color': getattr(academy, 'certificate_text_color', '#172033'),
-            }
-            for field, value in defaults.items():
-                if not getattr(self.instance, field, ''):
-                    self.initial[field] = value
 
-    def clean(self):
-        cleaned = super().clean()
-        if not cleaned.get('certificate_enabled'):
-            return cleaned
-        if cleaned.get('certificate_style_mode') == Course.CertificateStyleMode.CUSTOM:
-            for field in ('certificate_custom_accent_color', 'certificate_custom_background_color', 'certificate_custom_text_color'):
-                value = cleaned.get(field)
-                if value and (len(value) != 7 or not value.startswith('#')):
-                    self.add_error(field, 'Selecciona un color válido.')
-        return cleaned
+    def clean_certificate_enabled(self):
+        value = self.cleaned_data['certificate_enabled']
+        if value == '0' and self.course and self.course.access_type == Course.AccessType.UNTIL_CERTIFICATE:
+            raise forms.ValidationError(
+                'Este curso usa acceso “Hasta certificarse”. Cambia primero el tipo de acceso en Ajustes del curso.'
+            )
+        return value
+
+    def save(self):
+        if self.course is None:
+            raise ValueError('ProfessorCertificateToggleForm requiere un curso.')
+        self.course.certificate_enabled = self.cleaned_data['certificate_enabled'] == '1'
+        # El profesor nunca selecciona ni personaliza el estilo: siempre usa el
+        # diseño central definido por el dueño de la academia.
+        self.course.certificate_style_mode = Course.CertificateStyleMode.ACADEMY
+        self.course.save(update_fields=['certificate_enabled', 'certificate_style_mode', 'updated_at'])
+        return self.course

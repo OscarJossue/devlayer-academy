@@ -1,30 +1,27 @@
 {% extends 'base.html' %}{% load static %}
-{% block title %}Cursos y usuarios · {{ request.academy.name }}{% endblock %}
+{% block title %}Cursos · {{ request.academy.name }}{% endblock %}
 {% block content %}
 <div class="sa-page-head">
-  <div><span class="eyebrow">GESTIÓN ACADÉMICA</span><h1>Cursos y usuarios</h1><p>Todo se administra desde el curso. Ábrelo para revisar publicación, profesores, estudiantes, pagos, accesos y progreso sin listas duplicadas.</p></div>
-  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:categories' %}">Organizar catálogo</a><a class="btn btn-small" href="{% url 'catalog:professor_course_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Crear curso</a></div>
+  <div><span class="eyebrow">GESTIÓN ACADÉMICA</span><h1>Cursos</h1><p>Administra cada curso como una unidad independiente: contenido, estudiantes, pagos, profesores y progreso.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:categories' %}">Categorías y áreas</a><a class="btn btn-small" href="{% url 'catalog:professor_course_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Crear curso</a></div>
 </div>
-
+<nav class="owner-management-tabs" aria-label="Gestión académica"><a class="is-active" href="{% url 'superadmin:courses' %}">Cursos</a><a href="{% url 'superadmin:users' %}">Usuarios academia</a><a href="{% url 'superadmin:student_courses' %}">Estudiantes por curso {% if owner_action_counts.pending_payments %}<span class="nav-count">{{ owner_action_counts.pending_payments }}</span>{% endif %}</a></nav>
 <div class="sa-stat-grid compact-stats">
-  <div class="sa-stat"><div><strong>{{ course_summary.total }}</strong><span>Cursos</span></div></div>
-  <div class="sa-stat"><div><strong>{{ course_summary.published }}</strong><span>Publicados</span></div></div>
-  <div class="sa-stat"><div><strong>{{ course_summary.students }}</strong><span>Inscripciones</span></div></div>
-  <div class="sa-stat"><div><strong>{{ course_summary.in_progress }}</strong><span>En proceso</span></div></div>
-  <div class="sa-stat"><div><strong>{{ course_summary.completed }}</strong><span>Completados</span></div></div>
+  <div class="sa-stat"><div><strong>{{ course_summary.total }}</strong><span>Cursos</span></div></div><div class="sa-stat"><div><strong>{{ course_summary.published }}</strong><span>Publicados</span></div></div><div class="sa-stat"><div><strong>{{ course_summary.students }}</strong><span>Inscripciones</span></div></div><div class="sa-stat"><div><strong>{{ course_summary.in_progress }}</strong><span>En proceso</span></div></div><div class="sa-stat"><div><strong>{{ course_summary.completed }}</strong><span>Completados</span></div></div>
 </div>
-
 <form class="sa-filters" method="get"><input name="q" value="{{ q }}" placeholder="Buscar curso, categoría o creador"><select name="estado"><option value="">Todos los estados</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="btn btn-secondary btn-small" type="submit">Filtrar</button></form>
-
-<div class="sa-course-list">
+<div class="owner-course-list">
 {% for row in course_rows %}{% with course=row.course %}
-<article class="sa-course-row course-row-expanded">
-  <div class="sa-course-thumb">{% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="{{ course.title }}">{% else %}<svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg>{% endif %}</div>
-  <div class="sa-course-info"><strong><a href="{% url 'superadmin:course_detail' course.id %}">{{ course.title }}</a></strong><span>{{ course.category.name }} · {{ course.created_by.display_name }}</span><small>{{ course.modules.count }} módulos · {{ course.quizzes.count }} evaluaciones · {{ course.estimated_duration_label }} · ${{ course.price }}</small></div>
-  <div class="course-kpis"><span><b>{{ row.total }}</b> con acceso</span><span><b>{{ row.pending_payments }}</b> pagos pendientes</span><span><b>{{ row.in_progress }}</b> en proceso</span><span><b>{{ row.completed }}</b> completados</span></div>
-  <span class="sa-status {% if course.status == 'PUBLISHED' or course.status == 'APPROVED' %}ok{% elif course.status == 'REVIEW' %}warn{% elif course.status == 'PAUSED' or course.status == 'ARCHIVED' %}danger{% endif %}">{{ course.get_status_display }}</span>
-  <div class="sa-actions"><a class="sa-action primary" href="{% url 'superadmin:course_detail' course.id %}">Abrir curso</a><a class="sa-action" href="{% url 'catalog:professor_course_edit' course.id %}">Editar contenido</a></div>
+<article class="owner-course-card">
+  <a class="owner-course-cover" href="{% url 'superadmin:course_detail' course.id %}">{% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="{{ course.title }}">{% else %}<span><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span>{% endif %}</a>
+  <div class="owner-course-main">
+    <div class="owner-course-title-row"><div><span class="eyebrow">{{ course.category.name }}</span><h2><a href="{% url 'superadmin:course_detail' course.id %}">{{ course.title }}</a></h2></div><span class="sa-status {% if course.status == 'PUBLISHED' or course.status == 'APPROVED' %}ok{% elif course.status == 'REVIEW' %}warn{% elif course.status == 'PAUSED' or course.status == 'ARCHIVED' %}danger{% endif %}">{{ course.get_status_display }}</span></div>
+    <p>{% if course.short_description %}{{ course.short_description|truncatechars:145 }}{% elif course.description %}{{ course.description|striptags|truncatechars:145 }}{% else %}Curso sin descripción corta todavía.{% endif %}</p>
+    <div class="owner-course-meta"><span>{{ course.created_by.display_name }}</span><span>{{ course.modules.count }} módulos</span><span>{{ course.quizzes.count }} evaluaciones</span><span>{{ course.estimated_duration_label }}</span><span class="owner-course-price">{{ course.price }} {{ course.currency }}</span></div>
+  </div>
+  <div class="owner-course-kpis"><div><strong>{{ row.total }}</strong><span>Con acceso</span></div><div class="{% if row.pending_payments %}needs-action{% endif %}"><strong>{{ row.pending_payments }}</strong><span>Pagos pendientes</span></div><div><strong>{{ row.in_progress }}</strong><span>En proceso</span></div><div><strong>{{ row.completed }}</strong><span>Completados</span></div></div>
+  <div class="owner-course-actions"><a class="btn btn-small" href="{% url 'superadmin:course_detail' course.id %}">Abrir curso</a><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' course.id %}">Editar contenido</a></div>
 </article>
-{% endwith %}{% empty %}<div class="empty">No hay cursos todavía. El dueño puede crear el primero desde este mismo apartado.</div>{% endfor %}
+{% endwith %}{% empty %}<div class="empty">No hay cursos todavía. Crea el primero desde este apartado.</div>{% endfor %}
 </div>
 {% endblock %}

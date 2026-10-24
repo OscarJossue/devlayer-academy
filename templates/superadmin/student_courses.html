@@ -1,0 +1,15 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Estudiantes por curso · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">ESTUDIANTES</span><h1>Estudiantes por curso</h1><p>Primero selecciona el curso. Dentro encontrarás únicamente sus estudiantes, accesos, progreso y pagos relacionados.</p></div></div>
+<nav class="owner-management-tabs" aria-label="Usuarios"><a href="{% url 'superadmin:users' %}">Usuarios de la academia</a><a class="is-active" href="{% url 'superadmin:student_courses' %}">Estudiantes por curso {% if owner_action_counts.pending_payments %}<span class="nav-count">{{ owner_action_counts.pending_payments }}</span>{% endif %}</a></nav>
+<div class="owner-student-course-grid">
+{% for row in course_rows %}
+<a class="owner-student-course-card" href="{% url 'superadmin:student_course_users' row.course.id %}">
+  <div class="owner-student-course-cover">{% if row.course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' row.course.id %}" alt="{{ row.course.title }}">{% else %}<svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg>{% endif %}</div>
+  <div class="owner-student-course-copy"><span class="eyebrow">{{ row.course.category.name }}</span><h2>{{ row.course.title }}</h2><p>{{ row.course.short_description|default:'Gestiona estudiantes, accesos y pagos de este curso.'|truncatechars:105 }}</p><div class="owner-student-course-kpis"><span><b>{{ row.students }}</b> estudiantes</span><span><b>{{ row.active }}</b> activos</span><span><b>{{ row.completed }}</b> completados</span>{% if row.pending_payments %}<span class="needs-action"><b>{{ row.pending_payments }}</b> pagos por revisar</span>{% endif %}</div></div>
+  <span class="card-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+</a>
+{% empty %}<div class="empty">No hay cursos creados todavía.</div>{% endfor %}
+</div>
+{% endblock %}

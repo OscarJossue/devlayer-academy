@@ -9,7 +9,7 @@
       <h1 style="margin-bottom:12px;">{{ quiz.title }}</h1>
       <p style="font-size:1.05rem;line-height:1.7;">{{ reason }}</p>
       <p class="muted">La teoría que ya desbloqueaste sigue disponible en el menú lateral.</p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;"><a class="btn btn-primary" href="{% url 'learning:dashboard' %}">Mis cursos</a><a class="btn btn-secondary" href="{% url 'catalog:course_detail' quiz.course.slug %}">Ver curso</a></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;"><a class="btn btn-primary" href="{% url 'learning:my_courses' %}">Mis cursos</a><a class="btn btn-secondary" href="{% url 'catalog:course_detail' quiz.course.slug %}">Ver curso</a></div>
     </section>
   </div>
 </section>

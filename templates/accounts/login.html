@@ -20,8 +20,8 @@
       </aside>
       <div class="auth-main">
         <span class="eyebrow">ACCESO A LA ACADEMIA</span><h1>Iniciar sesión</h1><p>Ingresa con el correo registrado en tu academia.</p>
-        <form method="post" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Ingresar a mi cuenta</button></form>
-        <div class="split-links"><a href="{% url 'tenancy:academy_register' academy.slug %}">Crear una cuenta</a><a href="{% url 'tenancy:academy_password_reset' academy.slug %}">Olvidé mi contraseña</a></div>
+        <form method="post" class="form-stack">{% csrf_token %}{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block" type="submit">Ingresar a mi cuenta</button></form>
+        <div class="split-links"><a href="{% url 'tenancy:academy_register' academy.slug %}{% if next %}?next={{ next|urlencode }}{% endif %}">Crear una cuenta</a><a href="{% url 'tenancy:academy_password_reset' academy.slug %}">Olvidé mi contraseña</a></div>
         {% if academy %}<a class="auth-back-link" href="{% url 'tenancy:academy_public' academy.slug %}">← Volver a {{ academy.name }}</a>{% endif %}
       </div>
     </div>

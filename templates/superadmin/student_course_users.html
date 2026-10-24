@@ -1,0 +1,17 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Estudiantes · {{ course.title }}{% endblock %}
+{% block content %}
+<div class="sa-page-head"><div><span class="eyebrow">ESTUDIANTES · {{ course.category.name }}</span><h1>{{ course.title }}</h1><p>Control exclusivo de los estudiantes relacionados con este curso. Nada de otros cursos se mezcla aquí.</p></div><div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:student_courses' %}">Volver a cursos</a><a class="btn btn-small" href="{% url 'superadmin:course_detail' course.id %}">Abrir curso</a></div></div>
+<div class="sa-stat-grid compact-stats"><div class="sa-stat"><div><strong>{{ student_rows|length }}</strong><span>Estudiantes relacionados</span></div></div><div class="sa-stat"><div><strong>{{ pending_payments }}</strong><span>Pagos pendientes</span></div></div></div>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Estudiante</th><th>Verificación</th><th>Cuenta</th><th>Acceso al curso</th><th>Progreso</th><th>Pago reciente</th><th>Acciones</th></tr></thead><tbody>
+{% for row in student_rows %}<tr>
+<td><strong>{{ row.user.display_name }}</strong><small>{{ row.user.email }}</small></td>
+<td><span class="verification-dot {% if row.user.email_verified %}is-verified{% else %}is-pending{% endif %}" title="{% if row.user.email_verified %}Correo verificado{% else %}Correo pendiente{% endif %}">✓</span></td>
+<td>{% if row.membership %}<span class="sa-status {% if row.membership.status == 'ACTIVE' %}ok{% elif row.membership.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ row.membership.get_status_display }}</span>{% else %}<span class="sa-status warn">Sin membresía</span>{% endif %}</td>
+<td>{% if row.enrollment %}<span class="sa-status {% if row.enrollment.status == 'ACTIVE' or row.enrollment.status == 'COMPLETED' %}ok{% else %}danger{% endif %}">{{ row.enrollment.get_status_display }}</span>{% else %}<span class="sa-status warn">Pendiente</span>{% endif %}</td>
+<td><div class="table-progress"><span>{{ row.progress }}%</span><div class="progress"><span style="width:{{ row.progress }}%"></span></div></div></td>
+<td>{% if row.payment %}<span class="sa-status {% if row.payment.status == 'APPROVED' %}ok{% elif row.payment.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ row.payment.get_status_display }}</span><small>{{ row.payment.created_at|date:'d/m/Y H:i' }}</small>{% else %}<span class="muted">Sin pago registrado</span>{% endif %}</td>
+<td><div class="sa-actions"><a class="sa-action" href="{% url 'superadmin:user_detail' row.user.id %}">Perfil</a>{% if row.payment and row.payment.status == 'PENDING' %}{% if row.payment.proof %}<a class="sa-action" target="_blank" rel="noopener" href="{% url 'billing:payment_proof' row.payment.id %}">Comprobante</a>{% endif %}<form method="post" action="{% url 'superadmin:course_payment_action' course.id row.payment.id %}" class="sa-actions">{% csrf_token %}<input type="hidden" name="return_to" value="students"><button class="sa-action primary" name="action" value="approve" type="submit">Aprobar</button><button class="sa-action danger" name="action" value="reject" type="submit">Rechazar</button></form>{% else %}<a class="sa-action primary" href="{% url 'superadmin:course_detail' course.id %}#estudiantes">Gestionar</a>{% endif %}</div></td>
+</tr>{% empty %}<tr><td colspan="7">Este curso todavía no tiene estudiantes ni solicitudes de pago.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

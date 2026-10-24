@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Vista estudiante · {{ course.title }}{% endblock %}
+{% block content %}
+{% include 'professor/_student_preview_banner.html' %}
+<section class="panel professor-preview-empty">
+  <span class="eyebrow">VISTA ESTUDIANTE</span>
+  <h1>Este curso todavía no tiene contenido visible para estudiantes</h1>
+  <p>Publica al menos un módulo y una clase, activa un cuestionario o habilita la clase magistral para poder recorrer la experiencia del estudiante.</p>
+  <div class="page-actions"><a class="btn" href="{% url 'catalog:professor_course_edit' course.id %}">Volver a configurar el curso</a></div>
+</section>
+{% endblock %}

@@ -9,7 +9,7 @@ urlpatterns = [
     # y muestran una pantalla que obliga a utilizar /academy/<slug>/.
     path('registro/', views.global_access_disabled, name='register'),
     path('ingresar/', views.global_access_disabled, name='login'),
-    path('salir/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),
+    path('salir/', views.logout_view, name='logout'),
     path('verificacion/', views.verification_pending, name='verification_pending'),
     path('reenviar-verificacion/', views.resend_verification, name='resend_verification'),
     path('verificar/<str:token>/', views.global_access_disabled, name='verify_email'),

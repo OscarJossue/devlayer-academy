@@ -1,4 +1,28 @@
-{% extends 'base.html' %}{% block title %}Certificados · Superadmin{% endblock %}{% block content %}
-<div class="sa-page-head"><div><span class="eyebrow">CERTIFICACIÓN</span><h1>Certificados</h1><p>Consulta códigos, estudiante, curso y estado de los certificados emitidos.</p></div></div>
-<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Código</th><th>Estudiante</th><th>Curso</th><th>Emisión</th><th>Estado</th></tr></thead><tbody>{% for item in certificates_list %}<tr><td><strong>{{ item.code }}</strong></td><td>{{ item.enrollment.user.display_name }}<small>{{ item.enrollment.user.email }}</small></td><td>{{ item.enrollment.course.title }}</td><td>{{ item.issued_at|date:'d/m/Y H:i' }}</td><td><span class="sa-status {% if item.status == 'VALID' %}ok{% else %}danger{% endif %}">{{ item.get_status_display }}</span></td></tr>{% empty %}<tr><td colspan="5">No hay certificados emitidos.</td></tr>{% endfor %}</tbody></table></div>
+{% extends 'base.html' %}{% load static %}
+{% block title %}Certificados por curso · {{ request.academy.name }}{% endblock %}
+{% block content %}
+<div class="sa-page-head">
+  <div><span class="eyebrow">CERTIFICACIÓN</span><h1>Certificados por curso</h1><p>Selecciona un curso para revisar sus estudiantes, avance y certificados emitidos. La información de distintos cursos nunca se mezcla.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'superadmin:certificate_style' %}">Configurar diseño global</a></div>
+</div>
+
+<div class="sa-stat-grid compact-stats certificate-owner-stats">
+  <div class="sa-stat"><div><strong>{{ course_rows|length }}</strong><span>Cursos con certificado</span></div></div>
+  <div class="sa-stat"><div><strong>{{ total_certificates }}</strong><span>Certificados emitidos</span></div></div>
+  <div class="sa-stat"><div><strong>{{ total_pending }}</strong><span>Completados pendientes</span></div></div>
+</div>
+
+<section class="sa-panel owner-certificate-panel">
+  <div class="sa-panel-head"><div><span class="eyebrow">CURSOS</span><h2>Elige el curso que deseas revisar</h2><p>Cada fila abre el control de certificación exclusivo de ese curso.</p></div></div>
+  <div class="certificate-course-list">
+    {% for row in course_rows %}
+    <a class="certificate-course-row" href="{% url 'superadmin:certificate_course_detail' row.course.id %}">
+      <div class="certificate-course-icon"><svg><use href="{% static 'icons/sprite.svg' %}#certificados"></use></svg></div>
+      <div class="certificate-course-copy"><strong>{{ row.course.title }}</strong><span>{{ row.course.category.name }} · Diseño de la academia</span></div>
+      <div class="certificate-course-kpis"><span><b>{{ row.students }}</b><small>Estudiantes</small></span><span><b>{{ row.completed }}</b><small>Completados</small></span><span><b>{{ row.issued }}</b><small>Emitidos</small></span><span class="{% if row.pending %}has-pending{% endif %}"><b>{{ row.pending }}</b><small>Pendientes</small></span></div>
+      <span class="certificate-course-open">Abrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </a>
+    {% empty %}<div class="empty"><strong>No hay cursos con certificado habilitado.</strong><span>El profesor puede indicar Sí/No al configurar su curso. El diseño siempre lo administra el dueño.</span></div>{% endfor %}
+  </div>
+</section>
 {% endblock %}

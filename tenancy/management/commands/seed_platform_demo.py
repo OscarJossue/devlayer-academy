@@ -34,7 +34,7 @@ ACADEMIES = [
         'tagline': 'Aprende habilidades que abren nuevas oportunidades.',
         'public_description': 'Academia demo para probar el plan Inicial y el flujo de transferencias.',
         'plan': 'inicial', 'owner_email': 'dueno.horizonte@demo.local', 'owner_password': 'Horizonte2026!',
-        'owner_first': 'Andrea', 'owner_last': 'Horizonte', 'payment_transfer_enabled': True, 'payment_whatsapp_enabled': False,
+        'owner_first': 'Andrea', 'owner_last': 'Horizonte', 'payment_transfer_enabled': True, 'payment_whatsapp_enabled': True, 'payment_whatsapp_number': '593985721899', 'support_whatsapp_2_label': 'Contabilidad', 'support_whatsapp_2_number': '593985721899',
         'bank': ('Banco Pichincha', 'Ahorros', '2200010010', 'Academia Horizonte Demo'),
     },
     {
@@ -78,6 +78,10 @@ class Command(BaseCommand):
                     'payment_transfer_enabled': data['payment_transfer_enabled'],
                     'payment_whatsapp_enabled': data['payment_whatsapp_enabled'],
                     'payment_whatsapp_number': data.get('payment_whatsapp_number', ''),
+                    'support_whatsapp_1_label': data.get('support_whatsapp_1_label', ''),
+                    'support_whatsapp_1_number': data.get('support_whatsapp_1_number', ''),
+                    'support_whatsapp_2_label': data.get('support_whatsapp_2_label', ''),
+                    'support_whatsapp_2_number': data.get('support_whatsapp_2_number', ''),
                     'payment_instructions': 'Usa el código de la orden como referencia y sube un comprobante legible.',
                 },
             )

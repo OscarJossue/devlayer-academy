@@ -1,27 +1,52 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Panel del profesor · Devlayer Academy{% endblock %}
+{% block title %}Resumen del profesor · {{ request.academy.name }}{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <div class="page-heading-copy"><span class="eyebrow">PANEL DEL PROFESOR</span><h1>Gestión académica</h1><p>Crea cursos, organiza contenido, configura evaluaciones y revisa el avance de tus estudiantes desde un solo lugar.</p></div>
-  <div class="page-actions"><a class="btn" href="{% url 'catalog:professor_course_create' %}"><svg width="18" height="18"><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Crear curso</a></div>
+<div class="page-heading professor-page-heading">
+  <div class="page-heading-copy">
+    <span class="eyebrow">RESUMEN ESTADÍSTICO</span>
+    <h1>Tu actividad académica</h1>
+    <p>Una vista rápida del estado real de tus cursos, matrículas, progreso, notas y pagos pendientes.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_courses' %}"><svg width="18" height="18"><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg>Mis cursos</a>
+    <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_students_overview' %}"><svg width="18" height="18"><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg>Estudiantes y notas</a>
+  </div>
 </div>
 
-<div class="quick-grid">
-  <div class="quick-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ stats.total }} cursos</strong><span>Total bajo tu gestión</span></div></div>
-  <div class="quick-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#catalogo"></use></svg></span><div><strong>{{ stats.published }} publicados</strong><span>Disponibles para estudiantes</span></div></div>
-  <div class="quick-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><div><strong>{{ stats.review }} en revisión</strong><span>Pendientes del dueño de la academia</span></div></div>
-  <div class="quick-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.students }} matrículas</strong><span>Estudiantes en tus cursos</span></div></div>
+<div class="professor-stat-grid">
+  <article class="professor-stat-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#cursos"></use></svg></span><div><strong>{{ stats.courses }}</strong><span>Cursos asignados</span><small>{{ stats.published }} publicados</small></div></article>
+  <article class="professor-stat-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#usuarios"></use></svg></span><div><strong>{{ stats.students }}</strong><span>Estudiantes únicos</span><small>{{ stats.enrollments }} matrículas activas o registradas</small></div></article>
+  <article class="professor-stat-card"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#evaluaciones"></use></svg></span><div><strong>{{ stats.average_progress }}%</strong><span>Progreso promedio</span><small>{% if stats.average_grade != None %}Nota media {{ stats.average_grade }}%{% else %}Sin notas todavía{% endif %}</small></div></article>
+  <article class="professor-stat-card {% if stats.pending_payments %}has-alert{% endif %}"><span class="icon-box"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>{{ stats.pending_payments }}</strong><span>Pagos pendientes</span><small>{% if can_manage_students %}Puedes revisarlos desde Estudiantes{% else %}Requiere permiso del dueño{% endif %}</small></div></article>
 </div>
 
-<div class="section-head" style="margin-bottom:14px"><div><span class="eyebrow">CURSOS</span><h2>Mis cursos</h2></div></div>
-<div class="course-grid">
-  {% for course in courses %}
-    <article class="course-card">
-      <a class="course-cover" href="{% url 'catalog:professor_course_edit' course.id %}">{% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="Portada de {{ course.title }}">{% else %}<span class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></span>{% endif %}<span class="course-price-float">{{ course.get_status_display }}</span></a>
-      <div class="course-card-body"><span class="badge badge-neutral">{{ course.category.name }}</span><h3><a href="{% url 'catalog:professor_course_edit' course.id %}">{{ course.title }}</a></h3><p>{{ course.modules.count }} módulos · {{ course.quizzes.count }} evaluaciones · {{ course.enrollments.count }} estudiantes</p></div>
-      <div class="course-card-footer"><div class="instructor-mini"><span class="avatar">{{ user.display_name|slice:':1' }}</span><div><strong>Administrar curso</strong><span>${{ course.price }} {{ course.currency }}</span></div></div><a class="card-open" href="{% url 'catalog:professor_course_edit' course.id %}" aria-label="Administrar {{ course.title }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-    </article>
-  {% empty %}<div class="empty">Todavía no tienes cursos. Crea el primero y constrúyelo paso a paso.</div>{% endfor %}
+<div class="professor-summary-grid">
+  <section class="panel professor-summary-panel">
+    <div class="section-head"><div><span class="eyebrow">ESTADO DE CURSOS</span><h2>Actividad reciente</h2><p>No es una segunda lista de cursos: aquí solo ves su situación operativa.</p></div><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_courses' %}">Administrar cursos</a></div>
+    <div class="professor-status-list">
+      {% for course in recent_courses %}
+      <a class="professor-status-row" href="{% url 'catalog:professor_course_edit' course.id %}">
+        <div><strong>{{ course.title }}</strong><span>{{ course.category.name }} · actualizado {{ course.updated_at|date:'d/m/Y H:i' }}</span></div>
+        <span class="sa-status {% if course.status == 'PUBLISHED' or course.status == 'APPROVED' %}ok{% elif course.status == 'REVIEW' %}warn{% endif %}">{{ course.get_status_display }}</span>
+      </a>
+      {% empty %}<div class="empty">Todavía no tienes cursos asignados.</div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="panel professor-summary-panel">
+    <div class="section-head"><div><span class="eyebrow">OPERACIÓN</span><h2>Pagos por revisar</h2><p>Solo se muestran comprobantes vinculados a tus cursos.</p></div></div>
+    {% if not can_manage_students %}
+      <div class="delegated-permission-note"><strong>Permiso no habilitado</strong><span>El dueño puede autorizarte para aprobar pagos y habilitar estudiantes únicamente en tus cursos.</span></div>
+    {% endif %}
+    <div class="professor-status-list">
+      {% for payment in pending_payments %}
+      <div class="professor-status-row">
+        <div><strong>{{ payment.order.user.display_name }}</strong><span>{{ payment.order.course.title }} · {{ payment.amount }} {{ payment.order.currency }}</span></div>
+        <a class="sa-action" href="{% url 'catalog:professor_students' payment.order.course.id %}">Revisar</a>
+      </div>
+      {% empty %}<div class="empty compact-empty">No hay pagos pendientes en tus cursos.</div>{% endfor %}
+    </div>
+  </section>
 </div>
 {% endblock %}

@@ -1,25 +1,43 @@
-<article class="course-card">
-  <a class="course-cover" href="{% if academy %}{% url 'tenancy:academy_course_detail' academy.slug course.slug %}{% else %}{{ course.get_absolute_url }}{% endif %}" aria-label="Abrir {{ course.title }}">
+<article class="course-card {% if course.student_enrollment and course.student_enrollment.access_allowed %}course-card-owned{% endif %}">
+  {% if request.is_academy_public %}
+    {% url 'tenancy:academy_course_detail' academy.slug course.slug as course_detail_url %}
+    {% url 'tenancy:academy_course_thumbnail' academy.slug course.id as course_thumbnail_url %}
+  {% else %}
+    {% url 'catalog:course_detail' course.slug as course_detail_url %}
+    {% url 'catalog:course_thumbnail' course.id as course_thumbnail_url %}
+  {% endif %}
+  <a class="course-cover" href="{{ course_detail_url }}" aria-label="Abrir {{ course.title }}">
     {% if course.thumbnail %}
-      <img src="{% if academy %}{% url 'tenancy:academy_course_thumbnail' academy.slug course.id %}{% else %}{% url 'catalog:course_thumbnail' course.id %}{% endif %}" alt="Portada de {{ course.title }}" loading="lazy">
+      <img src="{{ course_thumbnail_url }}" alt="Portada de {{ course.title }}" loading="lazy">
     {% else %}
       <span class="course-cover-placeholder"><span class="course-cover-code">{{ course.title|slice:':2'|upper }}</span></span>
     {% endif %}
+    <span class="course-price-float">{% if course.price %}${{ course.price }} <small>{{ course.currency }}</small>{% else %}Gratis{% endif %}</span>
+    {% if course.student_enrollment and course.student_enrollment.access_allowed %}<span class="course-owned-label">Ya tienes este curso</span>{% endif %}
   </a>
   <div class="course-card-body">
     <div class="course-card-badges"><span class="badge">{{ course.category.name }}</span>{% if course.certificate_enabled %}<span class="badge certificate-badge">Certificado</span>{% endif %}</div>
-    <h3><a href="{% if academy %}{% url 'tenancy:academy_course_detail' academy.slug course.slug %}{% else %}{{ course.get_absolute_url }}{% endif %}">{{ course.title }}</a></h3>
-    <p>{{ course.short_description|default:course.description|truncatechars:132 }}</p>
-    <div class="course-card-meta">
-      <span><strong>{% if course.price %}${{ course.price }} {{ course.currency }}{% else %}Gratis{% endif %}</strong><small>Precio</small></span>
+    <h3><a href="{{ course_detail_url }}">{{ course.title }}</a></h3>
+    {% with first_module=course.modules.all|first %}
+      <p class="course-card-summary">{% if course.short_description %}{{ course.short_description|truncatechars:135 }}{% elif course.description %}{{ course.description|truncatechars:135 }}{% elif first_module %}Aprende paso a paso con una ruta práctica que inicia en “{{ first_module.title|truncatechars:72 }}”.{% else %}Programa de formación en {{ course.category.name }} con contenido organizado para avanzar de forma clara y práctica.{% endif %}</p>
+      <div class="course-learn-line"><strong>Qué aprenderás</strong><span>{% if first_module %}{{ first_module.title|truncatechars:78 }}{% else %}Contenido práctico organizado por módulos y evaluaciones.{% endif %}</span></div>
+    {% endwith %}
+    <div class="course-card-meta course-card-meta-compact">
       <span><strong>{{ course.estimated_duration_label }}</strong><small>Duración</small></span>
       <span><strong>{{ course.modules.count }}</strong><small>Módulos</small></span>
     </div>
+    {% if course.student_enrollment and course.student_enrollment.access_allowed %}
+      <div class="course-card-progress"><div><span>Tu progreso</span><strong>{{ course.student_progress }}%</strong></div><div class="progress"><span style="width:{{ course.student_progress }}%"></span></div></div>
+    {% endif %}
   </div>
   <div class="course-card-footer">
     {% with instructor=course.lead_instructor %}
       <div class="instructor-mini"><span class="avatar">{% if instructor %}{{ instructor.display_name|slice:':1' }}{% else %}{{ academy.name|default:'D'|slice:':1' }}{% endif %}</span><div><strong>{% if instructor %}{{ instructor.display_name }}{% elif academy %}{{ academy.name }}{% else %}Devlayer Academy{% endif %}</strong><span>Instructor</span></div></div>
     {% endwith %}
-    <a class="card-open" href="{% if academy %}{% url 'tenancy:academy_course_detail' academy.slug course.slug %}{% else %}{{ course.get_absolute_url }}{% endif %}" aria-label="Ver curso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    {% if course.student_enrollment and course.student_enrollment.access_allowed %}
+      <a class="btn btn-small course-card-continue" href="{% url 'learning:course_player' course.slug %}">{% if course.student_progress > 0 %}Continuar{% else %}Comenzar{% endif %}</a>
+    {% else %}
+      <a class="btn btn-small course-card-buy" href="{{ course_detail_url }}" aria-label="Adquirir {{ course.title }}">{% if course.price %}Adquirir curso{% else %}Inscribirme{% endif %}</a>
+    {% endif %}
   </div>
 </article>

@@ -1,25 +1,265 @@
 {% extends 'base.html' %}{% load static %}
-{% block title %}Banco de preguntas · {{ quiz.title }}{% endblock %}
+{% block title %}Configurar evaluación · {{ quiz.title }}{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <div class="page-heading-copy"><span class="eyebrow">BANCO DE PREGUNTAS</span><h1>{{ quiz.title }}</h1><p>Solo se admiten preguntas de <strong>selección única</strong> o <strong>varias selecciones</strong>. La respuesta correcta viene en el XLSX y Academy califica automáticamente.</p></div>
-  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' quiz.course.id %}">Volver al curso</a><a class="btn btn-secondary btn-small" href="{% static 'plantillas/plantilla_preguntas.xlsx' %}" download>Plantilla XLSX</a><a class="btn btn-secondary btn-small" href="{% static 'plantillas/ejemplo_cuestionario_desarrollo_web.xlsx' %}" download>Ejemplo completo</a></div>
-</div>
-<div class="import-layout">
-  <section class="panel form-panel">
-    <div class="form-help-card"><strong>Formato automático:</strong> en <code>tipo</code> usa <strong>unica</strong> o <strong>multiple</strong>. En <code>respuesta_correcta</code> escribe <strong>A</strong> para una respuesta o <strong>A,C</strong> para varias. El XLSX se procesa y no se almacena.</div>
-    <form method="post" enctype="multipart/form-data" class="form-stack">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn" type="submit">Previsualizar preguntas</button></form>
+<div class="assessment-page">
+  <div class="page-heading professor-page-heading assessment-page-heading">
+    <div class="page-heading-copy">
+      <span class="eyebrow">{% if quiz.kind == 'FINAL' %}EXAMEN FINAL{% else %}CUESTIONARIO DEL MÓDULO{% endif %}</span>
+      <h1>{{ quiz.title }}</h1>
+      <p>{% if quiz.module %}{{ quiz.module.title }} · {% endif %}Configura la evaluación y carga sus preguntas sin salir de este espacio.</p>
+    </div>
+    <div class="page-actions assessment-page-actions">
+      {% if quiz.module %}
+        <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_module_editor' quiz.module.id %}">← Volver al módulo</a>
+      {% else %}
+        <a class="btn btn-secondary btn-small" href="{% url 'catalog:professor_course_edit' quiz.course.id %}">← Volver al curso</a>
+      {% endif %}
+      <a class="btn btn-secondary btn-small" href="{% static 'plantillas/plantilla_preguntas.xlsx' %}" download>Plantilla XLSX</a>
+      <a class="btn btn-secondary btn-small" href="{% static 'plantillas/ejemplo_cuestionario_10_preguntas.xlsx' %}" download>Ejemplo · 10 preguntas</a>
+    </div>
+  </div>
+
+  <section class="panel assessment-bank-scope-card">
+    <div class="assessment-bank-scope-icon" aria-hidden="true">🔒</div>
+    <div>
+      <span class="eyebrow">BANCO AISLADO</span>
+      <h2>{{ bank_scope_label }}</h2>
+      <p>Este banco pertenece únicamente a esta evaluación. <strong>Nunca mezcla preguntas de otros módulos ni de otros cursos.</strong></p>
+    </div>
   </section>
-  <section class="panel bank-summary"><span class="eyebrow">EVALUACIÓN</span><h2>{{ current_questions.count }} preguntas automáticas</h2><p>Se mostrarán {{ quiz.question_count }} por intento. Nota mínima: {{ quiz.required_score }}%. Intentos: {% if quiz.max_attempts == 0 %}ilimitados{% else %}{{ quiz.max_attempts }}{% endif %}.</p><div class="assessment-state"><span class="sa-status {% if quiz.is_active %}ok{% else %}warn{% endif %}">{% if quiz.is_active %}Publicada{% else %}Borrador / pausada{% endif %}</span></div><form method="post" class="assessment-publish-form">{% csrf_token %}{% if quiz.is_active %}<button class="btn btn-secondary" name="action" value="pause" type="submit">Pausar evaluación</button>{% else %}<button class="btn" name="action" value="publish" type="submit">Publicar evaluación</button>{% endif %}</form></section>
+
+  <section class="panel assessment-settings-panel">
+    <div class="section-head assessment-section-head">
+      <div>
+        <span class="eyebrow">PARÁMETROS</span>
+        <h2>Configuración de la evaluación</h2>
+        <p>Define cantidad de preguntas, nota mínima, intentos y el llenado automático del banco.</p>
+      </div>
+      <span class="sa-status {% if quiz.is_active %}ok{% else %}warn{% endif %}">{% if quiz.is_active %}Publicada{% else %}Borrador / pausada{% endif %}</span>
+    </div>
+
+    <form method="post" class="assessment-settings-form assessment-settings-form-v2">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="settings">
+
+      <div class="assessment-input-grid">
+        <div class="assessment-field assessment-field-title">
+          <label for="{{ settings_form.title.id_for_label }}">{{ settings_form.title.label }}</label>
+          {{ settings_form.title }}
+          {% if settings_form.title.errors %}<div class="field-errors">{{ settings_form.title.errors }}</div>{% endif %}
+        </div>
+        <div class="assessment-field">
+          <label for="{{ settings_form.question_count.id_for_label }}">{{ settings_form.question_count.label }}</label>
+          {{ settings_form.question_count }}
+          {% if settings_form.question_count.help_text %}<div class="field-help">{{ settings_form.question_count.help_text }}</div>{% endif %}
+          {% if settings_form.question_count.errors %}<div class="field-errors">{{ settings_form.question_count.errors }}</div>{% endif %}
+        </div>
+        <div class="assessment-field">
+          <label for="{{ settings_form.pass_percentage.id_for_label }}">{{ settings_form.pass_percentage.label }}</label>
+          {{ settings_form.pass_percentage }}
+          {% if settings_form.pass_percentage.help_text %}<div class="field-help">{{ settings_form.pass_percentage.help_text }}</div>{% endif %}
+          {% if settings_form.pass_percentage.errors %}<div class="field-errors">{{ settings_form.pass_percentage.errors }}</div>{% endif %}
+        </div>
+        <div class="assessment-field">
+          <label for="{{ settings_form.max_attempts.id_for_label }}">{{ settings_form.max_attempts.label }}</label>
+          {{ settings_form.max_attempts }}
+          {% if settings_form.max_attempts.errors %}<div class="field-errors">{{ settings_form.max_attempts.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="assessment-time-config">
+        <div class="assessment-time-copy">
+          <span class="eyebrow">TIEMPO DEL INTENTO</span>
+          <strong>¿Cómo quieres controlar la duración?</strong>
+          <small>Esta regla se guarda por evaluación. Un cuestionario de módulo y el examen final pueden usar configuraciones distintas.</small>
+        </div>
+        <div class="assessment-field">
+          <label for="{{ settings_form.time_mode.id_for_label }}">{{ settings_form.time_mode.label }}</label>
+          {{ settings_form.time_mode }}
+          {% if settings_form.time_mode.help_text %}<div class="field-help">{{ settings_form.time_mode.help_text }}</div>{% endif %}
+          {% if settings_form.time_mode.errors %}<div class="field-errors">{{ settings_form.time_mode.errors }}</div>{% endif %}
+        </div>
+        <div class="assessment-field" data-time-minutes>
+          <label for="{{ settings_form.time_limit_minutes.id_for_label }}">{{ settings_form.time_limit_minutes.label }}</label>
+          {{ settings_form.time_limit_minutes }}
+          {% if settings_form.time_limit_minutes.help_text %}<div class="field-help">{{ settings_form.time_limit_minutes.help_text }}</div>{% endif %}
+          {% if settings_form.time_limit_minutes.errors %}<div class="field-errors">{{ settings_form.time_limit_minutes.errors }}</div>{% endif %}
+        </div>
+        <div class="assessment-time-mode-help" data-time-mode-help></div>
+      </div>
+
+      <div class="assessment-toggle-grid">
+        <label class="assessment-toggle assessment-toggle-primary" for="{{ settings_form.randomize_questions.id_for_label }}">
+          {{ settings_form.randomize_questions }}
+          <span>
+            <strong>{{ settings_form.randomize_questions.label }}</strong>
+            <small>Prioriza las preguntas del XLSX más reciente. Si faltan preguntas para completar el intento, toma al azar únicamente del banco anterior de este mismo módulo.</small>
+          </span>
+        </label>
+        <label class="assessment-toggle" for="{{ settings_form.show_correct_answers.id_for_label }}">
+          {{ settings_form.show_correct_answers }}
+          <span><strong>{{ settings_form.show_correct_answers.label }}</strong><small>El estudiante podrá revisar las respuestas al terminar el intento.</small></span>
+        </label>
+        <label class="assessment-toggle" for="{{ settings_form.randomize_choices.id_for_label }}">
+          {{ settings_form.randomize_choices }}
+          <span><strong>{{ settings_form.randomize_choices.label }}</strong><small>Cambia el orden de las opciones de respuesta.</small></span>
+        </label>
+        <label class="assessment-toggle" for="{{ settings_form.is_required.id_for_label }}">
+          {{ settings_form.is_required }}
+          <span><strong>{{ settings_form.is_required.label }}</strong><small>Debe aprobarse antes de avanzar al siguiente contenido.</small></span>
+        </label>
+      </div>
+
+      {% if settings_form.non_field_errors %}<div class="field-errors">{{ settings_form.non_field_errors }}</div>{% endif %}
+      <div class="assessment-settings-actions"><button class="btn" type="submit">Guardar parámetros</button></div>
+    </form>
+  </section>
+
+  <div class="assessment-bank-flow">
+    <article class="assessment-flow-step is-priority">
+      <span>1</span>
+      <div><strong>XLSX más reciente</strong><small>{{ priority_count }} preguntas con prioridad</small></div>
+    </article>
+    <div class="assessment-flow-arrow">→</div>
+    <article class="assessment-flow-step">
+      <span>2</span>
+      <div><strong>Banco anterior de esta evaluación</strong><small>{{ historical_count }} preguntas de respaldo</small></div>
+    </article>
+    <div class="assessment-flow-arrow">→</div>
+    <article class="assessment-flow-step is-result">
+      <span>3</span>
+      <div><strong>Intento del estudiante</strong><small>{{ quiz.question_count }} preguntas por intento</small></div>
+    </article>
+  </div>
+
+  <div class="import-layout assessment-import-layout assessment-import-layout-v2">
+    <section class="panel form-panel assessment-upload-panel">
+      <div class="form-help-card assessment-import-help">
+        <strong>Sube el XLSX de este módulo</strong>
+        <span>Las preguntas que confirmes serán la prioridad. Las anteriores de este mismo banco se conservan automáticamente como respaldo; no tienes que seleccionar nada manualmente.</span>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="form-stack assessment-upload-form">
+        {% csrf_token %}
+        {% include 'partials/form_fields.html' with form=form %}
+        <button class="btn" type="submit">Previsualizar preguntas</button>
+      </form>
+    </section>
+
+    <section class="panel bank-summary assessment-bank-summary">
+      <span class="eyebrow">BANCO DEL MÓDULO</span>
+      <strong class="assessment-bank-number">{{ current_questions.count }}</strong>
+      <h2>preguntas totales</h2>
+      <div class="assessment-bank-mini-stats">
+        <span><b>{{ priority_count }}</b> prioridad XLSX</span>
+        <span><b>{{ historical_count }}</b> banco anterior</span>
+        <span><b>{{ available_count }}</b> disponibles ahora</span>
+      </div>
+      <p>La evaluación mostrará <strong>{{ quiz.question_count }}</strong> por intento. Nota mínima: <strong>{{ quiz.required_score }}%</strong>. Intentos: <strong>{% if quiz.max_attempts == 0 %}ilimitados{% else %}{{ quiz.max_attempts }}{% endif %}</strong>.</p><p class="assessment-timing-summary"><strong>Tiempo:</strong> {{ quiz.timing_label }}</p>
+      <div class="assessment-state"><span class="sa-status {% if quiz.is_active %}ok{% else %}warn{% endif %}">{% if quiz.is_active %}Publicada{% else %}Borrador / pausada{% endif %}</span></div>
+      <form method="post" class="assessment-publish-form">
+        {% csrf_token %}
+        {% if quiz.is_active %}<button class="btn btn-secondary" name="action" value="pause" type="submit">Pausar evaluación</button>{% else %}<button class="btn" name="action" value="publish" type="submit">Publicar evaluación</button>{% endif %}
+      </form>
+    </section>
+  </div>
+
+  {% if preview_errors %}
+    <div class="message warning assessment-message"><strong>Corrige estas filas antes de importar:</strong>{% for error in preview_errors %}<div>{{ error }}</div>{% endfor %}</div>
+  {% endif %}
+
+  {% if preview_rows %}
+    <section class="panel preview-panel assessment-preview-panel">
+      <div class="section-head assessment-section-head">
+        <div><span class="eyebrow">VISTA PREVIA</span><h2>Preguntas detectadas en el XLSX</h2><p>Al confirmar, este lote pasa a ser la prioridad de {{ bank_scope_label }}.</p></div>
+      </div>
+      <div class="question-preview-grid assessment-preview-grid">
+        {% for row in preview_rows %}
+          <article class="question-preview-card assessment-question-card">
+            <div class="question-preview-head"><span>Pregunta {{ forloop.counter }}</span><strong>{{ row.tipo_label }}</strong></div>
+            <h3>{{ row.pregunta }}</h3>
+            <div class="preview-options">
+              {% if row.opcion_a %}<div><span>A</span><p>{{ row.opcion_a }}</p></div>{% endif %}
+              {% if row.opcion_b %}<div><span>B</span><p>{{ row.opcion_b }}</p></div>{% endif %}
+              {% if row.opcion_c %}<div><span>C</span><p>{{ row.opcion_c }}</p></div>{% endif %}
+              {% if row.opcion_d %}<div><span>D</span><p>{{ row.opcion_d }}</p></div>{% endif %}
+            </div>
+            <div class="assessment-answer-note"><strong>Respuesta correcta:</strong> {{ row.respuesta_correcta }}</div>
+            {% if row.explicacion %}<p class="assessment-explanation">{{ row.explicacion }}</p>{% endif %}
+          </article>
+        {% endfor %}
+      </div>
+      {% if not preview_errors %}<form method="post" class="preview-confirm">{% csrf_token %}<input type="hidden" name="action" value="confirm"><button class="btn" type="submit">Confirmar e importar como prioridad</button></form>{% endif %}
+    </section>
+  {% endif %}
+
+  <section class="panel preview-panel assessment-preview-panel">
+    <div class="section-head assessment-section-head">
+      <div>
+        <span class="eyebrow">PRIORIDAD ACTUAL</span>
+        <h2>Preguntas del XLSX más reciente</h2>
+        <p>Estas preguntas se intentan usar primero. Si son suficientes, el sistema no necesita tomar ninguna pregunta anterior.</p>
+      </div>
+      <span class="assessment-count-pill">{{ priority_count }}</span>
+    </div>
+    {% if priority_count %}
+      <div class="question-preview-grid assessment-current-grid">
+        {% for question in priority_questions %}
+          <article class="question-preview-card assessment-question-card">
+            <div class="question-preview-head"><span>Pregunta {{ forloop.counter }}</span><strong>{% if question.question_type == 'MULTIPLE' %}Varias selecciones{% else %}Selección única{% endif %}</strong></div>
+            <h3>{{ question.text }}</h3>
+            <div class="preview-options">
+              {% for choice in question.choices.all %}<div class="{% if choice.is_correct %}is-correct{% endif %}"><span>{{ forloop.counter }}</span><p>{{ choice.text }}</p></div>{% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="assessment-empty-state"><strong>Todavía no hay un XLSX prioritario</strong><span>Sube el archivo de este módulo y confirma la importación. El banco queda aislado automáticamente.</span></div>
+    {% endif %}
+  </section>
+
+  {% if historical_count %}
+    <details class="panel assessment-history-panel">
+      <summary>
+        <span><span class="eyebrow">BANCO ANTERIOR</span><strong>{{ historical_count }} preguntas de este mismo módulo</strong></span>
+        <small>Ver banco de respaldo</small>
+      </summary>
+      <div class="assessment-history-copy">Estas preguntas solo se usan para completar el intento cuando el check de banco automático está activo y el XLSX prioritario no alcanza la cantidad configurada.</div>
+      <div class="question-preview-grid assessment-current-grid">
+        {% for question in historical_questions %}
+          <article class="question-preview-card assessment-question-card">
+            <div class="question-preview-head"><span>Banco {{ forloop.counter }}</span><strong>{% if question.question_type == 'MULTIPLE' %}Varias selecciones{% else %}Selección única{% endif %}</strong></div>
+            <h3>{{ question.text }}</h3>
+            <div class="preview-options">
+              {% for choice in question.choices.all %}<div class="{% if choice.is_correct %}is-correct{% endif %}"><span>{{ forloop.counter }}</span><p>{{ choice.text }}</p></div>{% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </details>
+  {% endif %}
 </div>
-{% if preview_errors %}<div class="message warning"><strong>Corrige estas filas antes de importar:</strong>{% for error in preview_errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
-{% if preview_rows %}
-<section class="panel preview-panel"><div class="section-head"><div><span class="eyebrow">VISTA PREVIA</span><h2>Preguntas detectadas</h2></div></div><div class="question-preview-grid">
-  {% for row in preview_rows %}<article class="question-preview-card"><div class="question-preview-head"><span>Pregunta {{ forloop.counter }}</span><strong>{{ row.tipo_label }}</strong></div><h3>{{ row.pregunta }}</h3><div class="preview-options">{% if row.opcion_a %}<div><span>A</span>{{ row.opcion_a }}</div>{% endif %}{% if row.opcion_b %}<div><span>B</span>{{ row.opcion_b }}</div>{% endif %}{% if row.opcion_c %}<div><span>C</span>{{ row.opcion_c }}</div>{% endif %}{% if row.opcion_d %}<div><span>D</span>{{ row.opcion_d }}</div>{% endif %}</div><small><strong>Respuesta correcta:</strong> {{ row.respuesta_correcta }}</small>{% if row.explicacion %}<small>{{ row.explicacion }}</small>{% endif %}</article>{% endfor %}
-</div>{% if not preview_errors %}<form method="post" class="preview-confirm">{% csrf_token %}<input type="hidden" name="action" value="confirm"><button class="btn" type="submit">Confirmar e importar preguntas</button></form>{% endif %}</section>
-{% endif %}
-<section class="panel preview-panel"><div class="section-head"><div><span class="eyebrow">BANCO ACTUAL</span><h2>Vista previa de la evaluación</h2><p>Todas estas preguntas se califican automáticamente al terminar el intento.</p></div></div><div class="question-preview-grid">
-  {% for question in current_questions %}<article class="question-preview-card"><div class="question-preview-head"><span>Pregunta {{ forloop.counter }}</span><strong>{% if question.question_type == 'MULTIPLE' %}Varias selecciones{% else %}Selección única{% endif %}</strong></div><h3>{{ question.text }}</h3><div class="preview-options">{% for choice in question.choices.all %}<div class="{% if choice.is_correct %}is-correct{% endif %}"><span>{{ forloop.counter }}</span>{{ choice.text }}</div>{% endfor %}</div></article>{% empty %}<div class="empty">El banco todavía está vacío. Importa un XLSX o reutiliza preguntas anteriores.</div>{% endfor %}
-</div></section>
-<section class="panel reuse-panel"><div class="section-head"><div><span class="eyebrow">REUTILIZAR</span><h2>Preguntas automáticas anteriores</h2><p>Solo aparecen preguntas compatibles de selección única o varias selecciones.</p></div></div><form method="post">{% csrf_token %}<input type="hidden" name="action" value="reuse"><div class="reuse-list">{% for question in reusable_questions %}<label class="reuse-row"><input type="checkbox" name="question_ids" value="{{ question.id }}"><span class="reuse-check"></span><div><strong>{{ question.text }}</strong><small>{{ question.quiz.course.title }} · {{ question.quiz.title }} · {% if question.question_type == 'MULTIPLE' %}Varias selecciones{% else %}Selección única{% endif %}</small></div></label>{% empty %}<div class="empty">Todavía no existen preguntas automáticas anteriores para reutilizar.</div>{% endfor %}</div>{% if reusable_questions %}<button class="btn btn-secondary" type="submit">Reutilizar seleccionadas</button>{% endif %}</form></section>
+
+<script>
+(function(){
+  const select=document.getElementById('{{ settings_form.time_mode.id_for_label }}');
+  const minutesWrap=document.querySelector('[data-time-minutes]');
+  const minutes=document.getElementById('{{ settings_form.time_limit_minutes.id_for_label }}');
+  const help=document.querySelector('[data-time-mode-help]');
+  if(!select || !minutesWrap) return;
+  const copy={
+    NONE:'Sin reloj. El estudiante responde con calma y el sistema registra la duración real del intento.',
+    LIMIT:'Cuenta regresiva. Al llegar a cero el intento se cierra y se califican únicamente las respuestas entregadas dentro del tiempo.',
+    STOPWATCH:'Cronómetro recomendado. El estudiante puede continuar al superar el objetivo y al finalizar verá cuánto tiempo adicional utilizó.'
+  };
+  function sync(){
+    const mode=select.value;
+    const needs=mode!=='NONE';
+    minutesWrap.classList.toggle('is-disabled',!needs);
+    if(minutes){ minutes.disabled=!needs; minutes.required=needs; }
+    if(help) help.textContent=copy[mode]||'';
+  }
+  select.addEventListener('change',sync); sync();
+})();
+</script>
 {% endblock %}

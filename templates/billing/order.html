@@ -1,44 +1,59 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Orden {{ order.code }} · {{ academy.name }}{% endblock %}
 {% block content %}
-<section class="section"><div class="container detail-grid payment-layout">
-  <div class="payment-main">
-    <span class="eyebrow">ORDEN {{ order.code }}</span>
-    <h1>{{ order.course.title }}</h1>
-    <div class="price-large">${{ order.amount }} {{ order.currency }}</div>
-    <p class="lead">Realiza el pago usando uno de los métodos habilitados por {{ academy.name }} y registra tu comprobante para revisión.</p>
-
-    {% if academy.payment_instructions %}<div class="payment-instructions"><strong>Indicaciones de la academia</strong><p>{{ academy.payment_instructions }}</p></div>{% endif %}
-
-    {% if academy.payment_transfer_enabled %}
-    <div class="payment-method-section">
-      <div class="section-mini-head"><span class="eyebrow">TRANSFERENCIA</span><h3>Cuentas bancarias disponibles</h3></div>
-      <div class="bank-grid">
-        {% for bank in banks %}
-          <div class="bank-card">
-            <strong>{{ bank.bank_name }}</strong>
-            <span>{{ bank.account_type|default:'Cuenta' }} · {{ bank.account_number }}</span>
-            <span>{{ bank.holder_name }}</span>
-            {% if bank.holder_id %}<small>{{ bank.holder_id }}</small>{% endif %}
-            {% if bank.instructions %}<small>{{ bank.instructions }}</small>{% endif %}
-          </div>
-        {% empty %}
-          <div class="message warning">La academia habilitó transferencias, pero todavía no configuró una cuenta bancaria.</div>
-        {% endfor %}
-      </div>
+<section class="section"><div class="container payment-page-shell">
+  <div class="payment-course-summary panel">
+    <div>
+      <span class="eyebrow">ORDEN {{ order.code }}</span>
+      <h1>{{ order.course.title }}</h1>
+      <p>{{ order.course.short_description|default:order.course.description|truncatechars:170 }}</p>
     </div>
-    {% endif %}
-
-    {% if whatsapp_url %}
-      <div class="payment-method-section"><a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ whatsapp_url }}">Reportar pago por WhatsApp</a></div>
-    {% endif %}
+    <div class="payment-course-total"><span>Total</span><strong>${{ order.amount }} <small>{{ order.currency }}</small></strong></div>
   </div>
 
-  <aside class="panel payment-panel">
-    <span class="eyebrow">COMPROBANTE</span><h2>Registrar pago</h2>
-    <p class="muted">El dueño o administrador de esta academia revisará el comprobante antes de habilitar el curso.</p>
-    <form method="post" enctype="multipart/form-data" class="form-stack payment-proof-form">{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<button class="btn btn-block">Enviar comprobante</button></form>
-    {% if order.payments.all %}<div class="payment-history"><h3>Historial</h3>{% for p in order.payments.all %}<div class="meta-row"><span class="muted">{{ p.get_method_display }}</span><span class="badge badge-neutral">{{ p.get_status_display }}</span></div>{% endfor %}</div>{% endif %}
-  </aside>
+  {% if academy.payment_instructions %}<div class="payment-instructions"><strong>Indicaciones de {{ academy.name }}</strong><p>{{ academy.payment_instructions }}</p></div>{% endif %}
+
+  <div class="payment-layout payment-layout-refined">
+    <div class="payment-main">
+      <div class="section-mini-head"><span class="eyebrow">ELIGE CÓMO PAGAR</span><h2>Métodos habilitados</h2><p>Usa únicamente los datos mostrados por {{ academy.name }} para esta orden.</p></div>
+      <div class="payment-option-grid">
+        {% if academy.payment_transfer_enabled %}
+          <article class="payment-option-card" data-payment-choice="BANK">
+            <div class="payment-option-head"><span class="payment-option-icon">$</span><div><strong>Transferencia bancaria</strong><span>{{ banks|length }} cuenta{{ banks|length|pluralize:"s" }} disponible{{ banks|length|pluralize:"s" }}</span></div></div>
+            <div class="bank-grid bank-grid-compact">
+              {% for bank in banks %}<div class="bank-card"><strong>{{ bank.bank_name }}</strong><span>{{ bank.account_type|default:'Cuenta' }} · {{ bank.account_number }}</span><span>{{ bank.holder_name }}</span>{% if bank.holder_id %}<small>{{ bank.holder_id }}</small>{% endif %}{% if bank.instructions %}<small>{{ bank.instructions }}</small>{% endif %}</div>{% empty %}<div class="message warning">La academia todavía no configuró una cuenta bancaria visible.</div>{% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% for method in external_methods %}
+          <article class="payment-option-card" data-payment-choice="{{ method.code }}">
+            <div class="payment-option-head"><span class="payment-option-icon">↗</span><div><strong>{{ method.label }}</strong><span>{{ method.detail }}</span></div></div>
+            {% if method.url %}<a class="btn btn-secondary btn-small payment-provider-link" href="{{ method.url }}" target="_blank" rel="noopener noreferrer">Abrir {{ method.label }}</a>{% endif %}
+          </article>
+        {% endfor %}
+
+        {% if academy.payment_card_enabled %}
+          <article class="payment-option-card payment-option-card-whatsapp" data-payment-choice="CARD">
+            <div class="payment-option-head"><span class="payment-option-icon"><svg><use href="{% static 'icons/sprite.svg' %}#pagos"></use></svg></span><div><strong>Tarjeta de crédito o débito</strong><span>{{ academy.payment_card_instructions|default:'Solicita tu link de pago por WhatsApp.' }}</span></div></div>
+            {% if card_whatsapp_url %}<a class="btn whatsapp-button btn-small" target="_blank" rel="noopener noreferrer" href="{{ card_whatsapp_url }}"><svg><use href="{% static 'icons/sprite.svg' %}#whatsapp"></use></svg><span>Solicitar link por WhatsApp</span></a>{% else %}<div class="message warning">La academia debe configurar un número de WhatsApp para habilitar el link de tarjeta.</div>{% endif %}
+          </article>
+        {% endif %}
+      </div>
+
+      {% if advisor_whatsapp_url %}
+        <div class="payment-whatsapp-card payment-advisor-card"><div class="payment-whatsapp-icon"><svg><use href="{% static 'icons/sprite.svg' %}#whatsapp"></use></svg></div><div><strong>¿Tienes dudas o prefieres realizar tu compra por WhatsApp?</strong><span>Habla directamente con un asesor de {{ academy.name }}. Te ayudaremos con el pago del curso y, una vez confirmado, podremos habilitar tu acceso.</span></div><a class="btn whatsapp-button payment-advisor-button" target="_blank" rel="noopener noreferrer" href="{{ advisor_whatsapp_url }}"><svg><use href="{% static 'icons/sprite.svg' %}#whatsapp"></use></svg><span>Hablar con un asesor</span></a></div>
+      {% endif %}
+    </div>
+
+    <aside class="panel payment-panel payment-proof-panel">
+      <span class="eyebrow">COMPROBANTE</span><h2>Enviar para aprobación</h2>
+      <p class="muted">Selecciona el método utilizado y registra el pago. Cuando la academia lo apruebe, el curso se habilitará automáticamente.</p>
+      <form method="post" enctype="multipart/form-data" class="form-stack payment-proof-form" data-payment-proof-form>{% csrf_token %}{% include 'partials/form_fields.html' with form=form %}<div class="payment-method-help" data-payment-method-help></div><button class="btn btn-block">Enviar para aprobación</button></form>
+      {% if whatsapp_url %}<div class="payment-or"><span>o</span></div><a class="btn btn-block whatsapp-button" target="_blank" rel="noopener noreferrer" href="{{ whatsapp_url }}"><svg><use href="{% static 'icons/sprite.svg' %}#whatsapp"></use></svg><span>Ya pagué · enviar comprobante por WhatsApp</span></a>{% endif %}
+      {% if order.payments.all %}<div class="payment-history"><h3>Historial</h3>{% for p in order.payments.all %}<div class="meta-row"><span class="muted">{{ p.get_method_display }}</span><span class="badge badge-neutral">{{ p.get_status_display }}</span></div>{% endfor %}</div>{% endif %}
+    </aside>
+  </div>
 </div></section>
 {% endblock %}

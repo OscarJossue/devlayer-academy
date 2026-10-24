@@ -4,7 +4,7 @@ from django.dispatch import receiver
 
 from learning.models import Enrollment
 from learning.services import create_or_activate_enrollment
-from tenancy.mail import send_academy_mail
+from tenancy.mail import academy_mail_available, send_academy_mail
 from tenancy.services import academy_for_course
 from .models import Order, Payment
 
@@ -31,7 +31,7 @@ def activate_on_approval(sender, instance, created=False, **kwargs):
             create_or_activate_enrollment(instance.order.user, instance.order.course, Enrollment.Source.PAYMENT)
         except PermissionError:
             return
-        if changed and academy and academy.smtp_configured:
+        if changed and academy and academy_mail_available(academy):
             base = settings.PUBLIC_BASE_URL.rstrip('/')
             course_url = f'{base}/academy/{academy.slug}/curso/{instance.order.course.slug}/'
             send_academy_mail(
@@ -52,7 +52,7 @@ def activate_on_approval(sender, instance, created=False, **kwargs):
                 ),
                 attach_brand_logo=True,
             )
-    elif instance.status == Payment.Status.REJECTED and changed and academy and academy.smtp_configured:
+    elif instance.status == Payment.Status.REJECTED and changed and academy and academy_mail_available(academy):
         send_academy_mail(
             academy,
             subject=f'Comprobante requiere revisión · {instance.order.code}',

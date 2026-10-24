@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{{ course.masterclass_title|default:'Clase magistral' }} · {{ course.title }}{% endblock %}
 {% block content %}
+{% if professor_student_preview %}{% include 'professor/_student_preview_banner.html' %}{% endif %}
 <section class="player-layout">
   {% include 'learning/_course_sidebar.html' %}
   <div class="lesson-main masterclass-main">
@@ -30,6 +31,13 @@
         <div><strong>4</strong><span>Cierre del curso y próximos pasos recomendados.</span></div>
       </div>
     </section>
+    {% if professor_student_preview %}
+      <nav class="learning-flow-nav preview-masterclass-flow" aria-label="Navegación de vista previa">
+        <div class="learning-flow-side">{% if preview_previous_url %}<a class="flow-button flow-button-secondary" href="{{ preview_previous_url }}"><span>{{ preview_previous_label|default:'Anterior' }}</span></a>{% endif %}</div>
+        <div class="learning-flow-center"><span class="learning-inline-status preview-inline-status">Clase magistral · vista de prueba</span></div>
+        <div class="learning-flow-side learning-flow-side-end"><a class="flow-button flow-button-primary" href="{{ preview_next_url }}"><span>{{ preview_next_label }}</span></a></div>
+      </nav>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

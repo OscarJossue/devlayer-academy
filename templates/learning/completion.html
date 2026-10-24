@@ -8,7 +8,7 @@
     <h1>{{ course.title }}</h1>
     <p>Completaste la ruta de aprendizaje y las evaluaciones obligatorias.</p>
     <div class="completion-kpis"><div><strong>100%</strong><span>Progreso</span></div><div><strong>{{ course.estimated_duration_label }}</strong><span>Duración aproximada</span></div><div><strong>{{ attempts|length }}</strong><span>Evaluaciones realizadas</span></div></div>
-    <div class="actions" style="justify-content:center"><a class="btn btn-secondary" href="{% url 'learning:dashboard' %}">Volver a mis cursos</a>{% if course.masterclass_enabled %}<a class="btn btn-secondary" href="{% url 'learning:masterclass' course.slug %}">Clase magistral</a>{% endif %}{% if certificate %}<a class="btn" href="{% url 'certificates:pdf' certificate.code %}">Ver certificado</a>{% endif %}</div>
+    <div class="actions" style="justify-content:center"><a class="btn btn-secondary" href="{% url 'learning:my_courses' %}">Volver a mis cursos</a>{% if course.masterclass_enabled %}<a class="btn btn-secondary" href="{% url 'learning:masterclass' course.slug %}">Clase magistral</a>{% endif %}{% if certificate %}<a class="btn" href="{% url 'certificates:pdf' certificate.code %}">Ver certificado</a>{% endif %}</div>
   </div>
 
   <div class="completion-grid">

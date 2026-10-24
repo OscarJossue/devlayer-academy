@@ -31,6 +31,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'core.middleware.LocalDevelopmentOriginMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'tenancy.middleware.AcademyContextMiddleware',
@@ -72,6 +73,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -116,18 +124,34 @@ WHATSAPP_NUMBER = ''.join(ch for ch in os.getenv('WHATSAPP_NUMBER', '') if ch.is
 SITE_NAME = 'Devlayer Academy'
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', 'http://localhost:8000').rstrip('/')
 
+# Seguridad de sesión y navegador. En desarrollo HTTP se conservan cookies no-Secure
+# para localhost; producción debe ir únicamente por HTTPS.
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '28800'))  # 8 horas
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
 CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_REFERRER_POLICY = 'same-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
+
 if not DEBUG:
+    if SECRET_KEY == 'dev-only-change-this-before-production':
+        raise RuntimeError('DJANGO_SECRET_KEY debe configurarse con un valor fuerte antes de producción.')
+    if not CONTENT_ENCRYPTION_KEY:
+        raise RuntimeError('CONTENT_ENCRYPTION_KEY es obligatoria en producción para los campos cifrados.')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_NAME = '__Host-devlayer_session'
+    CSRF_COOKIE_NAME = '__Host-devlayer_csrf'
     SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', '1') == '1'
     SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024

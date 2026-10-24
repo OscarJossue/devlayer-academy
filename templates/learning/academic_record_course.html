@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ course.title }} · Récord académico{% endblock %}
+{% block content %}
+<div class="page-heading academic-record-heading">
+  <div class="page-heading-copy"><span class="eyebrow">RÉCORD ACADÉMICO · DETALLE</span><h1>{{ course.title }}</h1><p>Consulta tus resultados académicos de este curso y el estado de cada evaluación.</p></div>
+  <div class="page-actions"><a class="btn btn-secondary btn-small" href="{% url 'learning:academic_record' %}">Volver al récord</a><a class="btn btn-small" href="{% url 'learning:course_player' course.slug %}">{% if card.completed %}Ver curso{% else %}Continuar curso{% endif %}</a></div>
+</div>
+
+<div class="academic-detail-hero panel">
+  <div class="academic-detail-cover">{% if course.thumbnail %}<img src="{% url 'catalog:course_thumbnail' course.id %}" alt="{{ course.title }}">{% else %}<span>{{ course.title|slice:':2'|upper }}</span>{% endif %}</div>
+  <div class="academic-detail-copy"><span class="badge">{{ course.category.name }}</span><h2>{{ course.title }}</h2><div class="academic-detail-progress"><div><span>Progreso</span><strong>{{ card.progress }}%</strong></div><div class="progress"><span style="width:{{ card.progress }}%"></span></div></div></div>
+  <span class="academic-status {{ card.status_class }}">{{ card.status_label }}</span>
+</div>
+
+<div class="academic-stat-grid academic-stat-grid-course">
+  <article class="academic-stat-card"><div><small>Promedio del curso</small><strong>{{ card.academic_average_display }}</strong><span>Mejor resultado por evaluación</span></div></article>
+  <article class="academic-stat-card"><div><small>Nota de cierre</small><strong>{{ card.closing_score_display }}</strong><span>{% if card.quiz_rows %}Resultado final registrado{% else %}Sin evaluaciones todavía{% endif %}</span></div></article>
+  <article class="academic-stat-card"><div><small>Evaluaciones aprobadas</small><strong>{{ card.quiz_passed }}/{{ card.quiz_total }}</strong><span>{{ card.quiz_attempted }} con intento registrado</span></div></article>
+  <article class="academic-stat-card"><div><small>Certificado</small><strong>{% if card.has_certificate %}Emitido{% else %}Pendiente{% endif %}</strong><span>{% if card.has_certificate %}Disponible en Mis certificados{% else %}Se emite al cumplir requisitos{% endif %}</span></div></article>
+</div>
+
+<section class="panel academic-evaluation-panel">
+  <div class="section-head"><div><span class="eyebrow">EVALUACIONES</span><h2>Cuestionarios y examen final</h2><p>La nota mostrada como principal corresponde a tu mejor resultado registrado en cada evaluación.</p></div></div>
+  <div class="academic-evaluation-list">
+    {% for row in card.quiz_rows %}
+      <article class="academic-evaluation-row {% if row.passed %}is-passed{% elif row.attempts %}is-failed{% else %}is-pending{% endif %}">
+        <div class="academic-evaluation-order">{{ forloop.counter|stringformat:'02d' }}</div>
+        <div class="academic-evaluation-copy"><small>{{ row.area }}</small><strong>{{ row.quiz.title }}</strong><span>Mínimo requerido: {{ row.required_score }}% · {{ row.timing_label }}</span>{% if row.latest_overtime_display %}<span class="academic-time-extra">Último intento: +{{ row.latest_overtime_display }} sobre el tiempo recomendado</span>{% endif %}</div>
+        <div class="academic-evaluation-metric"><small>Mejor nota</small><strong>{{ row.best_score_display }}</strong></div>
+        <div class="academic-evaluation-metric"><small>Último intento</small><strong>{{ row.latest_score_display }}</strong></div>
+        <div class="academic-evaluation-metric"><small>Intentos</small><strong>{{ row.attempts }}</strong></div><div class="academic-evaluation-metric academic-evaluation-time"><small>Duración último</small><strong>{{ row.latest_duration_display }}</strong></div>
+        <div class="academic-evaluation-state">{% if row.passed %}<span class="badge badge-success">Aprobado</span>{% elif row.attempts %}<span class="badge badge-danger">Por aprobar</span>{% else %}<span class="badge">Sin intento</span>{% endif %}</div>
+      </article>
+    {% empty %}
+      <div class="empty">Este curso todavía no tiene evaluaciones registradas.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

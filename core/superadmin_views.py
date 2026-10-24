@@ -1,12 +1,12 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib import messages
 from django.db.models import Q, Sum
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.text import slugify
 
 from accounts.models import User
 from accounts.services import send_membership_approved_email, send_verification_email
@@ -20,15 +20,15 @@ from certificates.design import preview_style_context
 from certificates.rendering import render_certificate_pdf
 from learning.models import Enrollment
 from learning.services import progress_percentage
-from tenancy.mail import send_academy_mail
+from tenancy.mail import send_academy_mail, platform_mail_available
 from tenancy.models import AcademyMembership
 from tenancy.services import (
-    academy_has_available_seat, academy_license_usage, bind_bank, bind_category,
+    academy_has_available_seat, academy_license_usage, bind_bank, create_academy_category,
     scope_banks, scope_categories, scope_courses, scope_users,
 )
 
 from .decorators import superadmin_required
-from .superadmin_forms import AcademyBrandingForm, AcademyPaymentSettingsForm, AcademySMTPForm, AcademyCertificateStyleForm, BankAccountForm, CategoryForm, EnrollmentCreateForm, EnrollmentEditForm, SuperadminUserCreationForm
+from .superadmin_forms import AcademyBrandingForm, AcademySupportSettingsForm, AcademyPaymentSettingsForm, AcademySMTPForm, AcademyCertificateStyleForm, BankAccountForm, CategoryForm, EnrollmentCreateForm, EnrollmentEditForm, SuperadminUserCreationForm
 
 
 def _query(request):
@@ -179,7 +179,10 @@ def dashboard(request):
 
 @superadmin_required
 def users(request):
-    memberships = AcademyMembership.objects.filter(academy=request.academy).order_by('-created_at')
+    memberships = AcademyMembership.objects.filter(
+        academy=request.academy,
+        role__in=[AcademyMembership.Role.OWNER, AcademyMembership.Role.PROFESSOR, AcademyMembership.Role.ADMIN],
+    ).order_by('-created_at')
     q = _query(request); role = request.GET.get('rol') or ''; state = request.GET.get('estado') or ''
     if role:
         memberships = memberships.filter(role=role)
@@ -194,15 +197,15 @@ def users(request):
     membership_list = list(memberships[:250])
     user_map = {str(u.pk): u for u in User.objects.filter(pk__in=[m.user_id for m in membership_list])}
     rows = [{'user': user_map.get(str(m.user_id)), 'membership': m} for m in membership_list if user_map.get(str(m.user_id))]
-    roles = AcademyMembership.Role.choices
+    roles = [choice for choice in AcademyMembership.Role.choices if choice[0] in {AcademyMembership.Role.OWNER, AcademyMembership.Role.PROFESSOR, AcademyMembership.Role.ADMIN}]
     states = AcademyMembership.Status.choices
     all_memberships = AcademyMembership.objects.filter(academy=request.academy)
+    staff_memberships = all_memberships.filter(role__in=[AcademyMembership.Role.OWNER, AcademyMembership.Role.PROFESSOR, AcademyMembership.Role.ADMIN])
     summary = {
-        'pending': all_memberships.filter(status=AcademyMembership.Status.PENDING).count(),
-        'students': all_memberships.filter(role=AcademyMembership.Role.STUDENT, status=AcademyMembership.Status.ACTIVE).count(),
-        'professors': all_memberships.filter(role=AcademyMembership.Role.PROFESSOR, status=AcademyMembership.Status.ACTIVE).count(),
-        'admins': all_memberships.filter(role=AcademyMembership.Role.ADMIN, status=AcademyMembership.Status.ACTIVE).count(),
-        'blocked': all_memberships.filter(status=AcademyMembership.Status.BLOCKED).count(),
+        'pending': staff_memberships.filter(status=AcademyMembership.Status.PENDING).count(),
+        'professors': staff_memberships.filter(role=AcademyMembership.Role.PROFESSOR, status=AcademyMembership.Status.ACTIVE).count(),
+        'admins': staff_memberships.filter(role=AcademyMembership.Role.ADMIN, status=AcademyMembership.Status.ACTIVE).count(),
+        'blocked': staff_memberships.filter(status=AcademyMembership.Status.BLOCKED).count(),
     }
     return render(request, 'superadmin/users.html', {
         'users_list': rows, 'roles': roles, 'states': states, 'q': q,
@@ -211,9 +214,90 @@ def users(request):
 
 
 @superadmin_required
+def student_courses(request):
+    courses_qs = scope_courses(Course.objects.all(), request.academy).select_related('category').order_by('title')
+    rows = []
+    for course in courses_qs:
+        enrollments = course.enrollments.select_related('user')
+        pending_payments = Payment.objects.filter(order__course=course, status=Payment.Status.PENDING).count()
+        rows.append({
+            'course': course,
+            'students': enrollments.values('user_id').distinct().count(),
+            'active': enrollments.filter(status=Enrollment.Status.ACTIVE).count(),
+            'completed': enrollments.filter(status=Enrollment.Status.COMPLETED).count(),
+            'pending_payments': pending_payments,
+        })
+    return render(request, 'superadmin/student_courses.html', {'course_rows': rows})
+
+
+@superadmin_required
+def student_course_users(request, course_id):
+    course = get_object_or_404(
+        scope_courses(Course.objects.all(), request.academy).select_related('category'),
+        pk=course_id,
+    )
+    payments = list(
+        Payment.objects.filter(order__course=course)
+        .select_related('order__user')
+        .order_by('-created_at')
+    )
+    latest_payment = {}
+    for payment in payments:
+        latest_payment.setdefault(payment.order.user_id, payment)
+    enrollments = list(course.enrollments.select_related('user').order_by('user__first_name', 'user__last_name', 'user__email'))
+    enrollment_by_user = {item.user_id: item for item in enrollments}
+    student_memberships = AcademyMembership.objects.filter(
+        academy=request.academy, role=AcademyMembership.Role.STUDENT
+    )
+    membership_by_user = {item.user_id: item for item in student_memberships}
+    user_ids = set(enrollment_by_user) | set(latest_payment)
+    users_map = {item.pk: item for item in User.objects.filter(pk__in=user_ids)}
+    rows = []
+    for user_id in user_ids:
+        user = users_map.get(user_id)
+        if not user:
+            continue
+        enrollment = enrollment_by_user.get(user_id)
+        payment = latest_payment.get(user_id)
+        rows.append({
+            'user': user,
+            'membership': membership_by_user.get(user_id),
+            'enrollment': enrollment,
+            'payment': payment,
+            'progress': progress_percentage(enrollment) if enrollment else 0,
+        })
+    rows.sort(key=lambda row: row['user'].display_name.lower())
+    return render(request, 'superadmin/student_course_users.html', {
+        'course': course,
+        'student_rows': rows,
+        'pending_payments': sum(1 for row in rows if row['payment'] and row['payment'].status == Payment.Status.PENDING),
+    })
+
+
+@superadmin_required
 def user_detail(request, user_id):
     membership = get_object_or_404(AcademyMembership, academy=request.academy, user_id=user_id)
     user = get_object_or_404(User, pk=user_id, is_superuser=False)
+
+    if request.method == 'POST' and request.POST.get('section') == 'professor_permissions':
+        if membership.role not in {AcademyMembership.Role.PROFESSOR, AcademyMembership.Role.ADMIN}:
+            messages.error(request, 'Este permiso solo puede asignarse a profesores o administradores docentes.')
+            return redirect('superadmin:user_detail', user_id=user.id)
+        membership.can_manage_student_payments = request.POST.get('can_manage_student_payments') == 'on'
+        membership.save(update_fields=['can_manage_student_payments'])
+        log_event(
+            request.user,
+            'permisos_profesor_actualizados',
+            user,
+            {'gestiona_estudiantes_pagos': membership.can_manage_student_payments},
+            request,
+        )
+        if membership.can_manage_student_payments:
+            messages.success(request, 'Permiso activado. El profesor podrá gestionar pagos y accesos únicamente en sus cursos asignados.')
+        else:
+            messages.success(request, 'Permiso retirado. El profesor conserva únicamente la gestión académica de sus cursos.')
+        return redirect('superadmin:user_detail', user_id=user.id)
+
     enrollment_qs = _enrollments_for(request.academy).filter(user=user).select_related('course').order_by('-created_at')
     enrollment_rows = [_enrollment_progress_row(item) for item in enrollment_qs]
     professor_courses = scope_courses(Course.objects.all(), request.academy).filter(instructor_links__user=user).distinct().select_related('category')
@@ -244,6 +328,12 @@ def user_create(request):
     if requested_role == 'PROFESSOR':
         initial['role'] = AcademyMembership.Role.PROFESSOR
     form = SuperadminUserCreationForm(request.POST or None, academy=request.academy, initial=initial)
+    # La administración general de usuarios está reservada al equipo de la academia.
+    # Los estudiantes se gestionan dentro de cada curso para no mezclar personas y matrículas.
+    form.fields['role'].choices = [
+        (AcademyMembership.Role.PROFESSOR, 'Profesor'),
+        (AcademyMembership.Role.ADMIN, 'Administrador'),
+    ]
 
     if request.method == 'POST' and form.is_valid():
         role = form.cleaned_data['role']
@@ -265,9 +355,9 @@ def user_create(request):
         if not user.email_verified:
             try:
                 send_verification_email(request, user, request.academy)
-                messages.success(request, 'Usuario vinculado y correo de verificación enviado desde el SMTP de la academia.')
+                messages.success(request, 'Usuario vinculado y correo de verificación enviado correctamente.')
             except Exception:
-                messages.warning(request, 'Usuario vinculado. No se pudo enviar el correo; revisa Correo SMTP.')
+                messages.warning(request, 'Usuario vinculado. El correo de verificación no pudo enviarse en este momento.')
         elif not created:
             messages.success(request, 'El usuario existente fue vinculado a esta academia sin afectar sus otras academias.')
         else:
@@ -305,7 +395,7 @@ def user_action(request, user_id):
         return redirect('superadmin:users')
     if action in {'approve', 'approve_without_verification', 'enable'}:
         if action == 'approve' and not user.email_verified:
-            messages.error(request, 'El correo todavía no está verificado. Puedes reenviar el enlace o usar “Aprobar sin verificar” si necesitas continuar por un problema de SMTP.')
+            messages.error(request, 'El correo todavía no está verificado. Puedes reenviar el enlace o usar “Aprobar sin verificar” si necesitas continuar.')
             return redirect('superadmin:users')
         if not academy_has_available_seat(request.academy, membership.role, exclude_membership=membership):
             messages.error(request, f'No hay cupos disponibles para {membership.get_role_display().lower()} en la licencia actual.')
@@ -346,7 +436,11 @@ def user_action(request, user_id):
             messages.error(request, f'No hay cupos disponibles para {dict(AcademyMembership.Role.choices).get(new_role, new_role).lower()}.')
             return redirect('superadmin:users')
         membership.role = new_role
-        membership.save(update_fields=['role'])
+        update_fields = ['role']
+        if new_role not in {AcademyMembership.Role.PROFESSOR, AcademyMembership.Role.ADMIN}:
+            membership.can_manage_student_payments = False
+            update_fields.append('can_manage_student_payments')
+        membership.save(update_fields=update_fields)
         messages.success(request, f'Rol actualizado a {membership.get_role_display()} solo en esta academia.')
     elif action == 'resend_verification':
         if user.email_verified:
@@ -421,6 +515,15 @@ def course_detail(request, course_id):
         .order_by('-created_at')[:100]
     )
     course_users = _course_user_rows(course, request.academy, course_payments)
+    # Evita duplicar profesores y estudiantes en varios bloques del mismo curso.
+    # Profesores se gestionan en su sección propia; aquí quedan estudiantes y
+    # solicitudes de estudiantes relacionadas con este curso.
+    course_students = []
+    for row in course_users:
+        if row['relation'] == 'Profesor del curso':
+            continue
+        row['progress'] = progress_percentage(row['enrollment']) if row['enrollment'] else 0
+        course_students.append(row)
     professor_ids = AcademyMembership.objects.filter(
         academy=request.academy,
         role=AcademyMembership.Role.PROFESSOR,
@@ -434,7 +537,7 @@ def course_detail(request, course_id):
         'summary': summary,
         'available_professors': available_professors,
         'course_payments': course_payments,
-        'course_users': course_users,
+        'course_students': course_students,
     })
 
 
@@ -550,6 +653,8 @@ def course_payment_action(request, course_id, payment_id):
         payment.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
         messages.warning(request, f'Comprobante de {payment.order.user.display_name} rechazado.')
     log_event(request.user, f'pago_curso_{action}', payment, {'curso': str(course.id)}, request)
+    if request.POST.get('return_to') == 'students':
+        return redirect('superadmin:student_course_users', course_id=course.id)
     return redirect('superadmin:course_detail', course_id=course.id)
 
 
@@ -654,7 +759,81 @@ def enrollment_edit(request, enrollment_id):
 
 @superadmin_required
 def certificates(request):
-    return render(request, 'superadmin/certificates.html', {'certificates_list': _certificates_for(request.academy).select_related('enrollment__user', 'enrollment__course').order_by('-issued_at')[:250]})
+    """Entrada ordenada por curso al control de certificados."""
+    courses_qs = (
+        scope_courses(Course.objects.filter(certificate_enabled=True), request.academy)
+        .select_related('category')
+        .order_by('title')
+    )
+    course_rows = []
+    for course in courses_qs:
+        enrollments = list(course.enrollments.select_related('user').all())
+        enrollment_ids = [item.id for item in enrollments]
+        certs = list(
+            Certificate.objects.filter(enrollment_id__in=enrollment_ids)
+            .select_related('enrollment__user')
+        )
+        issued_ids = {item.enrollment_id for item in certs}
+        completed = sum(
+            1 for item in enrollments
+            if item.status == Enrollment.Status.COMPLETED or item.certified_at or progress_percentage(item) >= 100
+        )
+        course_rows.append({
+            'course': course,
+            'students': len(enrollments),
+            'completed': completed,
+            'issued': len(certs),
+            'valid': sum(1 for item in certs if item.status == Certificate.Status.VALID),
+            'pending': max(completed - len(issued_ids), 0),
+        })
+    return render(request, 'superadmin/certificates.html', {
+        'course_rows': course_rows,
+        'total_certificates': sum(row['issued'] for row in course_rows),
+        'total_pending': sum(row['pending'] for row in course_rows),
+    })
+
+
+@superadmin_required
+def certificate_course_detail(request, course_id):
+    course = get_object_or_404(
+        scope_courses(Course.objects.filter(certificate_enabled=True), request.academy)
+        .select_related('category'),
+        pk=course_id,
+    )
+    enrollments = list(
+        course.enrollments.select_related('user').order_by('user__first_name', 'user__last_name', 'user__email')
+    )
+    certificates_by_enrollment = {
+        item.enrollment_id: item
+        for item in Certificate.objects.filter(enrollment__course=course).select_related('enrollment__user')
+    }
+    rows = []
+    for enrollment in enrollments:
+        progress = progress_percentage(enrollment)
+        completed = bool(
+            enrollment.status == Enrollment.Status.COMPLETED
+            or enrollment.certified_at
+            or progress >= 100
+        )
+        certificate = certificates_by_enrollment.get(enrollment.id)
+        rows.append({
+            'enrollment': enrollment,
+            'progress': progress,
+            'completed': completed,
+            'certificate': certificate,
+        })
+    issued = [row for row in rows if row['certificate']]
+    return render(request, 'superadmin/certificate_course.html', {
+        'course': course,
+        'rows': rows,
+        'stats': {
+            'students': len(rows),
+            'completed': sum(1 for row in rows if row['completed']),
+            'issued': len(issued),
+            'valid': sum(1 for row in issued if row['certificate'].status == Certificate.Status.VALID),
+            'pending': sum(1 for row in rows if row['completed'] and not row['certificate']),
+        },
+    })
 
 
 @superadmin_required
@@ -667,10 +846,20 @@ def categories(request):
 def category_create(request):
     form = CategoryForm(request.POST or None, academy=request.academy)
     if request.method == 'POST' and form.is_valid():
-        category = form.save(commit=False)
-        base = slugify(category.name) or 'categoria'; candidate = f'{request.academy.slug}-{base}'; index = 2
-        while Category.objects.exclude(pk=category.pk).filter(slug=candidate).exists(): candidate = f'{request.academy.slug}-{base}-{index}'; index += 1
-        category.slug = candidate; category.save(); bind_category(category, request.academy); log_event(request.user, 'categoria_creada', category, request=request); messages.success(request, 'Categoría creada.'); return redirect('superadmin:categories')
+        category, created = create_academy_category(
+            request.academy,
+            form.cleaned_data['name'],
+            description=form.cleaned_data.get('description', ''),
+            parent=form.cleaned_data.get('parent'),
+            is_active=form.cleaned_data.get('is_active', True),
+            order=form.cleaned_data.get('order', 0),
+        )
+        if not created:
+            form.add_error('name', 'Ya existe una categoría con este nombre en la academia.')
+        else:
+            log_event(request.user, 'categoria_creada', category, request=request)
+            messages.success(request, 'Categoría creada y sincronizada con los profesores.')
+            return redirect('superadmin:categories')
     return render(request, 'superadmin/form.html', {'form': form, 'title': 'Crear categoría', 'subtitle': 'La categoría solo pertenecerá a esta academia.', 'back_url': 'superadmin:categories'})
 
 
@@ -745,15 +934,35 @@ def audit(request):
 @superadmin_required
 def owner_profile(request):
     academy = request.academy
-    branding_form = AcademyBrandingForm(request.POST or None, request.FILES or None, instance=academy, prefix='branding')
-    if request.method == 'POST' and branding_form.is_valid():
+    section = request.POST.get('section') if request.method == 'POST' else ''
+    branding_form = AcademyBrandingForm(
+        request.POST if section == 'branding' else None,
+        request.FILES if section == 'branding' else None,
+        instance=academy,
+        prefix='branding',
+    )
+    support_form = AcademySupportSettingsForm(
+        request.POST if section == 'support' else None,
+        instance=academy,
+        prefix='support',
+    )
+
+    if request.method == 'POST' and section == 'branding' and branding_form.is_valid():
         branding_form.save()
         log_event(request.user, 'academia_perfil_actualizado', academy, {'slug': academy.slug}, request)
         messages.success(request, 'Perfil y personalización de la academia actualizados.')
         return redirect('superadmin:owner_profile')
+
+    if request.method == 'POST' and section == 'support' and support_form.is_valid():
+        support_form.save()
+        log_event(request.user, 'academia_soporte_actualizado', academy, request=request)
+        messages.success(request, 'Contactos de soporte de la academia actualizados.')
+        return redirect('superadmin:owner_profile')
+
     return render(request, 'superadmin/owner_profile.html', {
         'academy': academy,
         'branding_form': branding_form,
+        'support_form': support_form,
         'public_url': f'/academy/{academy.slug}/',
     })
 
@@ -805,16 +1014,18 @@ def branding(request):
 @superadmin_required
 def smtp_settings(request):
     academy = request.academy
-    if request.method == 'POST' and request.POST.get('action') == 'disable':
+    action = request.POST.get('action') if request.method == 'POST' else ''
+
+    if request.method == 'POST' and action in {'default', 'disable'}:
         academy.smtp_enabled = False
         academy.save(update_fields=['smtp_enabled', 'updated_at'])
-        log_event(request.user, 'smtp_academia_desactivado', academy, request=request)
-        messages.warning(request, 'Envío automático de correos desactivado. Los datos SMTP permanecen guardados para reactivarlos después.')
+        log_event(request.user, 'correo_predeterminado_activado', academy, request=request)
+        messages.success(request, 'Configuración predeterminada activada. DevLayer Studio enviará automáticamente las verificaciones y notificaciones de esta academia.')
         return redirect('superadmin:smtp_settings')
+
     form = AcademySMTPForm(request.POST or None, academy=academy)
-    if request.method == 'POST' and form.is_valid():
+    if request.method == 'POST' and action in {'save', 'test'} and form.is_valid():
         academy = form.save()
-        action = request.POST.get('action') or 'save'
         log_event(request.user, 'smtp_academia_actualizado', academy, {'host': academy.smtp_host, 'port': academy.smtp_port}, request)
         if action == 'test':
             recipient = form.cleaned_data['test_email']
@@ -822,10 +1033,7 @@ def smtp_settings(request):
                 send_academy_mail(
                     academy,
                     subject=f'Prueba de correo · {academy.name}',
-                    message=(
-                        f'Prueba de configuración SMTP de {academy.name}.\n\n'
-                        f'Si recibiste este mensaje, el servidor SMTP está funcionando correctamente.'
-                    ),
+                    message=f'Prueba de configuración SMTP de {academy.name}.\n\nSi recibiste este mensaje, el servidor SMTP está funcionando correctamente.',
                     recipients=[recipient],
                     fail_silently=False,
                     html_message=(
@@ -838,10 +1046,16 @@ def smtp_settings(request):
                     ),
                     attach_brand_logo=True,
                 )
-                messages.success(request, f'Configuración guardada. Prueba enviada correctamente a {recipient}.')
+                messages.success(request, f'Dominio propio guardado. Prueba enviada correctamente a {recipient}.')
             except Exception as exc:
-                messages.error(request, f'La configuración se guardó, pero la prueba SMTP falló: {exc}')
+                messages.error(request, f'El dominio propio se guardó, pero la prueba falló: {exc}')
         else:
-            messages.success(request, 'Correo SMTP guardado. La contraseña permanece cifrada.')
+            messages.success(request, 'Dominio propio guardado. La contraseña SMTP permanece cifrada.')
         return redirect('superadmin:smtp_settings')
-    return render(request, 'superadmin/smtp_settings.html', {'form': form, 'academy': academy})
+
+    return render(request, 'superadmin/smtp_settings.html', {
+        'form': form,
+        'academy': academy,
+        'using_default_mail': not academy.smtp_configured,
+        'platform_mail_ready': platform_mail_available(),
+    })

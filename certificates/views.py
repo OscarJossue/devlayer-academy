@@ -21,7 +21,7 @@ def my_certificates(request):
         course__certificate_enabled=True,
     ).exists():
         messages.info(request, 'Tus cursos actuales no tienen certificación habilitada.')
-        return redirect('learning:dashboard')
+        return redirect('learning:my_courses')
     return render(request, 'certificates/list.html', {'certificates': certificates})
 
 
@@ -35,7 +35,10 @@ def verify(request, code):
 def certificate_pdf(request, code):
     certificate = get_object_or_404(Certificate.objects.select_related('enrollment__user', 'enrollment__course'), code=code)
     academy = academy_for_course(certificate.enrollment.course)
-    if certificate.enrollment.user_id != request.user.id or not academy or academy.pk != request.academy.pk:
+    same_academy = bool(academy and request.academy and academy.pk == request.academy.pk)
+    is_student_owner = certificate.enrollment.user_id == request.user.id
+    is_academy_owner = getattr(request, 'academy_role', '') == 'OWNER'
+    if not same_academy or not (is_student_owner or is_academy_owner):
         raise Http404
     buf = render_certificate_pdf(
         academy=academy,

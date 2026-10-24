@@ -1,16 +1,18 @@
 import logging
 
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth import views as auth_views
 from django.core import signing
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from tenancy.models import Academy, AcademyMembership
-from tenancy.services import academy_has_available_seat, bind_user, membership_for_user
+from tenancy.mail import academy_mail_available, academy_sender
+from tenancy.services import academy_has_available_seat, bind_user, membership_for_user, scope_courses
 from .forms import AcademyPasswordResetForm, EmailAuthenticationForm, RegisterForm
 from .models import User
 from .services import SALT, send_new_registration_notice, send_verification_email
@@ -32,6 +34,37 @@ def role_home_url(user, academy):
     if membership.role in {AcademyMembership.Role.PROFESSOR, AcademyMembership.Role.ADMIN}:
         return reverse('catalog:professor_dashboard')
     return reverse('learning:dashboard')
+
+
+
+
+@require_POST
+def logout_view(request):
+    """Cierra por completo la sesión y vuelve al acceso de la academia actual."""
+    academy_slug = (request.session.get('academy_slug') or '').strip()
+    logout(request)
+    academy = Academy.objects.filter(slug=academy_slug, is_active=True).first() if academy_slug else None
+    response = (
+        redirect('tenancy:academy_login', academy_slug=academy.slug)
+        if academy
+        else redirect('core:home')
+    )
+    response['Cache-Control'] = 'private, no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
+
+@require_POST
+def secure_logout(request):
+    """Cierra sesión y evita restaurar datos privados desde caché/almacenamiento."""
+    system_area = request.path.startswith('/sistema/') or bool(getattr(request.user, 'is_superuser', False))
+    logout(request)
+    target = '/sistema/ingresar/' if system_area else '/'
+    response = redirect(target)
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Clear-Site-Data'] = '"cache", "storage"'
+    return response
 
 
 def global_access_disabled(request):
@@ -115,6 +148,46 @@ class AcademyLoginView(auth_views.LoginView):
         return requested or role_home_url(self.request.user, self.login_academy)
 
 
+def _safe_registration_next(request):
+    candidate = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    if not candidate:
+        return ''
+    if not url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return ''
+    return candidate
+
+
+def _registration_course(request, academy):
+    course_slug = (request.POST.get('curso') or request.GET.get('curso') or '').strip()
+    if not course_slug:
+        return None
+    # Import local para mantener accounts desacoplado del catálogo durante el arranque.
+    from catalog.models import Course
+
+    return (
+        scope_courses(
+            Course.objects.filter(
+                slug=course_slug,
+                status__in=[Course.Status.APPROVED, Course.Status.PUBLISHED],
+            ).select_related('category'),
+            academy,
+        )
+        .first()
+    )
+
+
+def _registration_destination(request, academy, selected_course):
+    # Cuando el registro nació desde un curso, el destino queda fijado al checkout
+    # de ese mismo curso. Así no se puede perder la selección entre GET y POST.
+    if selected_course:
+        return reverse('billing:checkout', args=[selected_course.slug])
+    return _safe_registration_next(request)
+
+
 def register(request, academy_slug=None):
     academy = get_object_or_404(Academy.objects.select_related('license'), slug=academy_slug, is_active=True)
     request.academy = academy
@@ -123,11 +196,20 @@ def register(request, academy_slug=None):
     if not academy.access_enabled:
         return render(request, 'tenancy/license_blocked.html', {'academy': academy, 'public_view': True}, status=403)
 
+    selected_course = _registration_course(request, academy)
+    next_url = _registration_destination(request, academy, selected_course)
+    flow_context = {
+        'academy': academy,
+        'selected_academy': academy,
+        'selected_course': selected_course,
+        'registration_next': next_url,
+    }
+
     if request.user.is_authenticated and not request.user.is_superuser:
         existing_membership = membership_for_user(request.user, academy=academy)
         if existing_membership:
             if existing_membership.status == AcademyMembership.Status.ACTIVE:
-                return redirect(role_home_url(request.user, academy))
+                return redirect(next_url or role_home_url(request.user, academy))
             if existing_membership.status == AcademyMembership.Status.BLOCKED:
                 messages.error(request, 'Tu cuenta está suspendida en esta academia.')
                 return redirect('tenancy:academy_login', academy_slug=academy.slug)
@@ -139,7 +221,6 @@ def register(request, academy_slug=None):
                 messages.error(request, 'Esta academia alcanzó el máximo de estudiantes permitido por su licencia.')
                 return redirect('tenancy:academy_public', slug=academy.slug)
             bind_user(request.user, academy, role=AcademyMembership.Role.STUDENT, status=AcademyMembership.Status.ACTIVE)
-            # Las notificaciones nunca deben impedir que el estudiante se una a la academia.
             try:
                 send_new_registration_notice(request, request.user, academy)
             except Exception as exc:
@@ -152,18 +233,16 @@ def register(request, academy_slug=None):
                     messages.warning(request, 'Ya perteneces a esta academia. No pudimos enviar la verificación; podrás solicitarla otra vez desde tu panel.')
             else:
                 messages.success(request, 'Ya perteneces a esta academia.')
-            return redirect(role_home_url(request.user, academy))
-        return render(request, 'accounts/join_academy.html', {'academy': academy})
+            return redirect(next_url or role_home_url(request.user, academy))
+        return render(request, 'accounts/join_academy.html', flow_context)
 
     form = RegisterForm(request.POST or None, academy=academy)
     if request.method == 'POST' and form.is_valid():
         if not academy_has_available_seat(academy, AcademyMembership.Role.STUDENT):
             messages.error(request, 'Esta academia alcanzó el máximo de estudiantes permitido por su licencia.')
-            return render(request, 'accounts/register.html', {'form': form, 'selected_academy': academy})
+            return render(request, 'accounts/register.html', {**flow_context, 'form': form})
         user, created = form.save()
         bind_user(user, academy, role=AcademyMembership.Role.STUDENT, status=AcademyMembership.Status.ACTIVE)
-        # La cuenta y la membresía ya están creadas. Un fallo SMTP o de aviso al
-        # dueño no puede convertir el registro del estudiante en un error 500.
         try:
             send_new_registration_notice(request, user, academy)
         except Exception as exc:
@@ -171,15 +250,15 @@ def register(request, academy_slug=None):
         if not user.email_verified:
             try:
                 send_verification_email(request, user, academy)
-                messages.success(request, 'Cuenta creada. Ya puedes explorar la academia; revisa tu correo para verificar tu dirección.')
+                messages.success(request, 'Cuenta creada. Ya puedes continuar con el curso seleccionado; revisa tu correo para verificar tu dirección.')
             except Exception:
-                messages.warning(request, 'Cuenta creada. Ya puedes explorar la academia; la verificación no pudo enviarse y podrás solicitarla otra vez desde tu panel.')
+                messages.warning(request, 'Cuenta creada. Puedes continuar; la verificación no pudo enviarse y podrás solicitarla otra vez desde tu panel.')
         else:
             messages.success(request, 'Cuenta vinculada correctamente a esta academia.')
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
         request.session['academy_slug'] = academy.slug
-        return redirect(role_home_url(user, academy))
-    return render(request, 'accounts/register.html', {'form': form, 'selected_academy': academy})
+        return redirect(next_url or role_home_url(user, academy))
+    return render(request, 'accounts/register.html', {**flow_context, 'form': form})
 
 
 def verification_pending(request):
@@ -207,7 +286,7 @@ def resend_verification(request):
             send_verification_email(request, request.user, academy)
             messages.success(request, f'Enviamos un nuevo correo de verificación a {request.user.email}.')
         except Exception as exc:
-            messages.error(request, f'No se pudo enviar la verificación. La academia debe revisar su SMTP. Detalle: {exc}')
+            messages.error(request, f'No se pudo enviar la verificación en este momento. Detalle: {exc}')
     return redirect(next_url)
 
 
@@ -257,14 +336,14 @@ class AcademyPasswordResetView(auth_views.PasswordResetView):
         return kwargs
 
     def form_valid(self, form):
-        if not self.academy.smtp_configured:
-            messages.error(self.request, 'La academia todavía no configuró su servidor SMTP. Contacta al dueño de la academia.')
+        if not academy_mail_available(self.academy):
+            messages.error(self.request, 'El servicio de correo no está disponible temporalmente. Intenta nuevamente más tarde.')
             return self.form_invalid(form)
         try:
             opts = {
                 'use_https': self.request.is_secure(),
                 'token_generator': self.token_generator,
-                'from_email': self.academy.smtp_sender,
+                'from_email': academy_sender(self.academy),
                 'email_template_name': self.email_template_name,
                 'subject_template_name': self.subject_template_name,
                 'request': self.request,
@@ -273,7 +352,7 @@ class AcademyPasswordResetView(auth_views.PasswordResetView):
             }
             form.save(**opts)
         except Exception:
-            messages.error(self.request, 'No se pudo enviar el correo. El dueño debe revisar host, puerto, usuario, contraseña y TLS/SSL.')
+            messages.error(self.request, 'No se pudo enviar el correo en este momento. Intenta nuevamente o contacta al soporte de la academia.')
             return self.form_invalid(form)
         return redirect('tenancy:academy_password_reset_done', academy_slug=self.academy.slug)
 

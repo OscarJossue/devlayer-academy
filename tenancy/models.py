@@ -23,9 +23,46 @@ class Academy(models.Model):
     tagline = models.CharField(max_length=160, blank=True, verbose_name='Frase principal')
     public_description = models.TextField(blank=True, verbose_name='Descripción pública')
 
+    # Soporte visible dentro de la academia. Estos contactos pertenecen al cliente
+    # y nunca deben mezclarse con el WhatsApp interno de DevLayer Studio.
+    support_title = models.CharField(
+        max_length=90, blank=True, default='Soporte de la academia',
+        verbose_name='Nombre del panel de soporte',
+    )
+    support_whatsapp_1_label = models.CharField(
+        max_length=60, blank=True, verbose_name='Etiqueta del WhatsApp 1',
+    )
+    support_whatsapp_1_number = models.CharField(
+        max_length=30, blank=True, verbose_name='WhatsApp 1',
+    )
+    support_whatsapp_2_label = models.CharField(
+        max_length=60, blank=True, verbose_name='Etiqueta del WhatsApp 2',
+    )
+    support_whatsapp_2_number = models.CharField(
+        max_length=30, blank=True, verbose_name='WhatsApp 2',
+    )
+
     # Cobros configurables por academia. Ninguna academia comparte métodos de pago.
     payment_transfer_enabled = models.BooleanField(default=True, verbose_name='Aceptar transferencia bancaria')
-    payment_whatsapp_enabled = models.BooleanField(default=False, verbose_name='Aceptar reporte por WhatsApp')
+    payment_paypal_enabled = models.BooleanField(default=False, verbose_name='Aceptar PayPal')
+    payment_paypal_email = models.EmailField(blank=True, verbose_name='Correo de PayPal')
+    payment_paypal_url = models.URLField(blank=True, verbose_name='Enlace de PayPal')
+    payment_payphone_enabled = models.BooleanField(default=False, verbose_name='Aceptar PayPhone')
+    payment_payphone_reference = models.CharField(max_length=120, blank=True, verbose_name='Dato de PayPhone')
+    payment_payphone_url = models.URLField(blank=True, verbose_name='Enlace de PayPhone')
+    payment_card_enabled = models.BooleanField(default=False, verbose_name='Aceptar tarjeta mediante link solicitado por WhatsApp')
+    payment_card_instructions = models.CharField(
+        max_length=220, blank=True,
+        default='Solicita tu link de pago por WhatsApp y completa el pago con tarjeta.',
+        verbose_name='Indicaciones para tarjeta',
+    )
+    payment_link_1_enabled = models.BooleanField(default=False, verbose_name='Habilitar link de pago 1')
+    payment_link_1_label = models.CharField(max_length=80, blank=True, verbose_name='Nombre del link de pago 1')
+    payment_link_1_url = models.URLField(blank=True, verbose_name='URL del link de pago 1')
+    payment_link_2_enabled = models.BooleanField(default=False, verbose_name='Habilitar link de pago 2')
+    payment_link_2_label = models.CharField(max_length=80, blank=True, verbose_name='Nombre del link de pago 2')
+    payment_link_2_url = models.URLField(blank=True, verbose_name='URL del link de pago 2')
+    payment_whatsapp_enabled = models.BooleanField(default=False, verbose_name='Aceptar soporte/reporte de pago por WhatsApp')
     payment_whatsapp_number = models.CharField(max_length=30, blank=True, verbose_name='WhatsApp para pagos')
     payment_instructions = models.TextField(blank=True, verbose_name='Indicaciones generales de pago')
 
@@ -117,6 +154,62 @@ class Academy(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PlatformEmailSettings(models.Model):
+    """SMTP transaccional global de DevLayer Studio.
+
+    Las academias que no configuran un dominio propio heredan este proveedor.
+    La contraseña se almacena con ``EncryptedTextField`` y nunca se expone en
+    plantillas ni respuestas. Solo existe una fila (pk=1).
+    """
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    is_enabled = models.BooleanField(default=False, verbose_name='Correo global habilitado')
+    smtp_host = models.CharField(max_length=255, blank=True, verbose_name='Servidor SMTP')
+    smtp_port = models.PositiveIntegerField(default=587, verbose_name='Puerto SMTP')
+    smtp_username = models.CharField(max_length=255, blank=True, verbose_name='Usuario SMTP')
+    smtp_password = EncryptedTextField(blank=True, verbose_name='Contraseña SMTP')
+    smtp_use_tls = models.BooleanField(default=True, verbose_name='Usar STARTTLS')
+    smtp_use_ssl = models.BooleanField(default=False, verbose_name='Usar SSL')
+    smtp_from_email = models.EmailField(blank=True, verbose_name='Correo remitente')
+    smtp_from_name = models.CharField(max_length=160, blank=True, default='DevLayer Studio', verbose_name='Nombre remitente')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Correo global de la plataforma'
+        verbose_name_plural = 'Correo global de la plataforma'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        if self.smtp_use_ssl:
+            self.smtp_use_tls = False
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def configured(self):
+        return bool(
+            self.is_enabled
+            and self.smtp_host
+            and self.smtp_port
+            and self.smtp_username
+            and self.smtp_password
+            and self.smtp_from_email
+        )
+
+    @property
+    def sender(self):
+        if not self.smtp_from_email:
+            return ''
+        name = (self.smtp_from_name or 'DevLayer Studio').strip()
+        return f'{name} <{self.smtp_from_email}>' if name else self.smtp_from_email
+
+    def __str__(self):
+        return 'SMTP global · DevLayer Studio'
 
 
 class AcademyPlan(models.Model):
@@ -343,6 +436,13 @@ class AcademyMembership(models.Model):
     # Excepción por academia: permite aprobar una membresía aunque el correo global
     # todavía no haya sido verificado. No afecta a otras academias del mismo usuario.
     email_verification_bypassed = models.BooleanField(default=False, verbose_name='Autorizado sin verificación de correo')
+    # Permiso delegado por el dueño. Solo habilita operaciones sobre estudiantes
+    # y pagos de los cursos donde el profesor está asignado; nunca concede acceso
+    # administrativo global a la academia.
+    can_manage_student_payments = models.BooleanField(
+        default=False,
+        verbose_name='Puede gestionar estudiantes y pagos de sus cursos',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

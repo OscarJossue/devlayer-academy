@@ -3,8 +3,9 @@ from django.conf import settings
 from django.utils import timezone
 
 from assessments.models import Quiz
+from assessments.services import valid_quizzes_for_course
 from catalog.models import Lesson
-from tenancy.mail import send_academy_mail
+from tenancy.mail import academy_mail_available, send_academy_mail
 from tenancy.services import academy_for_course
 from .models import Certificate
 
@@ -14,12 +15,12 @@ def _completion_requirements_met(enrollment):
     lessons = Lesson.objects.filter(module__course=course, is_published=True)
     if lessons.exclude(progress_records__enrollment=enrollment, progress_records__completed_at__isnull=False).exists():
         return False
-    required = Quiz.objects.filter(course=course, is_required=True, is_active=True)
+    required = valid_quizzes_for_course(course).filter(is_required=True, is_active=True)
     for quiz in required:
         if not quiz.attempts.filter(enrollment=enrollment, passed=True).exists():
             return False
     if course.final_exam_required:
-        finals = Quiz.objects.filter(course=course, kind=Quiz.Kind.FINAL, is_required=True, is_active=True)
+        finals = valid_quizzes_for_course(course).filter(kind=Quiz.Kind.FINAL, is_required=True, is_active=True)
         if not finals.exists() or any(not q.attempts.filter(enrollment=enrollment, passed=True).exists() for q in finals):
             return False
     return True
@@ -48,7 +49,7 @@ def issue_certificate_if_eligible(enrollment):
 
     academy = academy_for_course(course)
     academy_name = academy.name if academy else 'Academia'
-    if academy and academy.smtp_configured:
+    if academy and academy_mail_available(academy):
         base = settings.PUBLIC_BASE_URL.rstrip('/')
         verify_url = f'{base}/certificados/verificar/{certificate.code}/'
         pdf_url = f'{base}/certificados/{certificate.code}/pdf/'

@@ -3,7 +3,7 @@ from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import escape
 
-from tenancy.mail import send_academy_mail
+from tenancy.mail import academy_mail_available, send_academy_mail
 from tenancy.services import membership_for_user
 
 SALT = 'devlayer-email-verification'
@@ -55,8 +55,8 @@ def send_verification_email(request, user, academy=None):
         academy = membership.academy if membership else None
     if not academy:
         raise RuntimeError('No se pudo determinar la academia para enviar el correo.')
-    if not academy.smtp_configured:
-        raise RuntimeError('El SMTP de esta academia todavía no está configurado.')
+    if not academy_mail_available(academy):
+        raise RuntimeError('El servicio de correo no está disponible temporalmente.')
     token = verification_token(user, academy)
     url = request.build_absolute_uri(reverse('tenancy:academy_verify_email', args=[academy.slug, token]))
     name = escape(user.display_name)
@@ -86,7 +86,7 @@ def send_verification_email(request, user, academy=None):
 
 
 def send_membership_approved_email(request, user, academy):
-    if not academy.smtp_configured:
+    if not academy_mail_available(academy):
         return 0
     login_url = request.build_absolute_uri(reverse('tenancy:academy_login', args=[academy.slug]))
     html = _academy_email_html(
@@ -114,7 +114,7 @@ def send_membership_approved_email(request, user, academy):
 
 
 def send_new_registration_notice(request, user, academy):
-    if not academy.smtp_configured:
+    if not academy_mail_available(academy):
         return 0
     from accounts.models import User
     from tenancy.models import AcademyMembership
@@ -126,13 +126,13 @@ def send_new_registration_notice(request, user, academy):
     recipients = list(User.objects.filter(pk__in=owner_ids, is_active=True).values_list('email', flat=True))
     if not recipients:
         return 0
-    users_url = request.build_absolute_uri('/admin/usuarios/')
+    users_url = request.build_absolute_uri('/admin/estudiantes/')
     html = _academy_email_html(
         request,
         academy,
         'Nuevo estudiante registrado',
         f'<p><strong>{escape(user.display_name)}</strong> se registró en tu academia.</p><p>Correo: {escape(user.email)}</p><p>La cuenta ya puede explorar el catálogo. El acceso al contenido de los cursos se habilita cuando apruebas su pago o matrícula.</p>',
-        action_label='Ver usuarios',
+        action_label='Ver estudiantes por curso',
         action_url=users_url,
     )
     return send_academy_mail(
@@ -141,7 +141,7 @@ def send_new_registration_notice(request, user, academy):
         message=(
             f'Nuevo estudiante registrado en {academy.name}.\n\n'
             f'Estudiante: {user.display_name}\nCorreo: {user.email}\n\n'
-            f'Ver usuarios: {users_url}'
+            f'Ver estudiantes por curso: {users_url}'
         ),
         recipients=recipients,
         fail_silently=True,

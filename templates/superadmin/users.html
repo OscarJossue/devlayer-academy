@@ -1,45 +1,25 @@
 {% extends 'base.html' %}{% load static %}
-{% block title %}Usuarios y cuentas · {{ request.academy.name }}{% endblock %}
+{% block title %}Usuarios de la academia · {{ request.academy.name }}{% endblock %}
 {% block content %}
 <div class="sa-page-head">
-  <div><span class="eyebrow">PERSONAS</span><h1>Usuarios y cuentas</h1><p>Los estudiantes se registran directamente en la academia. Aquí administras roles, verificación de correo y suspensiones. El acceso al contenido de cada curso se controla por separado desde <strong>Accesos a cursos</strong> y <strong>Pagos</strong>.</p></div>
-  <a class="btn btn-small" href="{% url 'superadmin:user_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Crear usuario</a>
+  <div><span class="eyebrow">EQUIPO DE LA ACADEMIA</span><h1>Usuarios de la academia</h1><p>Aquí administras únicamente al equipo interno: dueño, profesores y administradores. Los estudiantes se organizan por curso en su apartado independiente.</p></div>
+  <a class="btn btn-small" href="{% url 'superadmin:user_create' %}"><svg><use href="{% static 'icons/sprite.svg' %}#agregar"></use></svg>Agregar profesor o administrador</a>
 </div>
-
+<div class="panel" style="padding:12px 14px;margin:0 0 14px;font-size:12px"><strong>Administradores:</strong> el cupo lo define el plan de la academia. Créalo desde “Agregar profesor o administrador” y selecciona el rol Administrador. El dueño no consume ese cupo.</div><nav class="owner-management-tabs" aria-label="Usuarios"><a class="is-active" href="{% url 'superadmin:users' %}">Usuarios de la academia {% if owner_action_counts.pending_memberships %}<span class="nav-count">{{ owner_action_counts.pending_memberships }}</span>{% endif %}</a><a href="{% url 'superadmin:student_courses' %}">Estudiantes por curso {% if owner_action_counts.pending_payments %}<span class="nav-count">{{ owner_action_counts.pending_payments }}</span>{% endif %}</a></nav>
 <div class="sa-stat-grid compact-stats">
-  <a class="sa-stat" href="?rol=STUDENT&estado=ACTIVE"><div><strong>{{ summary.students }}</strong><span>Estudiantes activos</span></div></a>
-  <a class="sa-stat" href="?rol=PROFESSOR&estado=ACTIVE"><div><strong>{{ summary.professors }}</strong><span>Profesores activos</span></div></a>
-  <a class="sa-stat" href="?rol=ADMIN&estado=ACTIVE"><div><strong>{{ summary.admins }}</strong><span>Administradores</span></div></a>
-  <a class="sa-stat" href="?estado=BLOCKED"><div><strong>{{ summary.blocked }}</strong><span>Cuentas suspendidas</span></div></a>
+  <div class="sa-stat"><div><strong>{{ summary.professors }}</strong><span>Profesores activos</span></div></div>
+  <div class="sa-stat"><div><strong>{{ summary.admins }}</strong><span>Administradores</span></div></div>
+  <div class="sa-stat"><div><strong>{{ summary.pending }}</strong><span>Solicitudes pendientes</span></div></div>
+  <div class="sa-stat"><div><strong>{{ summary.blocked }}</strong><span>Cuentas suspendidas</span></div></div>
 </div>
-
-<div class="sa-info-strip"><strong>Importante</strong><span>No necesitas aprobar el registro de cada estudiante. La cuenta puede entrar aunque el correo siga sin verificar. Tú apruebas el acceso al contenido cuando revisas el pago o habilitas una matrícula.</span></div>
-
-<form class="sa-filters" method="get">
-  <input name="q" value="{{ q }}" placeholder="Buscar por nombre o correo">
-  <select name="rol"><option value="">Todos los roles</option>{% for value,label in roles %}<option value="{{ value }}" {% if role_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  <select name="estado"><option value="">Todos los estados</option>{% for value,label in states %}<option value="{{ value }}" {% if state_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  <button class="btn btn-secondary btn-small" type="submit">Filtrar</button>
-</form>
-
-<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Correo</th><th>Cuenta en la academia</th><th>Acciones</th></tr></thead><tbody>
-{% for row in users_list %}{% with item=row.user membership=row.membership %}
-<tr>
-  <td><strong><a href="{% url 'superadmin:user_detail' item.id %}">{{ item.display_name }}</a></strong><small>{{ item.email }} · {{ item.phone|default:'Sin teléfono' }}</small></td>
-  <td>{{ membership.get_role_display }}</td>
-  <td><span class="sa-status {% if item.email_verified %}ok{% else %}warn{% endif %}">{% if item.email_verified %}Verificado{% else %}Sin verificar{% endif %}</span></td>
-  <td><span class="sa-status {% if membership.status == 'ACTIVE' %}ok{% elif membership.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ membership.get_status_display }}</span></td>
-  <td>
-    <div class="sa-actions"><a class="sa-action" href="{% url 'superadmin:user_detail' item.id %}">Ver perfil</a>
-    {% if membership.role == 'OWNER' %}<span class="sa-status ok">Dueño</span>{% else %}
-    <form method="post" action="{% url 'superadmin:user_action' item.id %}" class="sa-actions">{% csrf_token %}
-      {% if membership.status == 'ACTIVE' %}<button name="action" value="disable" class="sa-action danger" type="submit">Suspender cuenta</button>
-      {% else %}<button name="action" value="enable" class="sa-action primary" type="submit">Habilitar cuenta</button>{% endif %}
-      {% if not item.email_verified %}<button name="action" value="resend_verification" class="sa-action" type="submit">Reenviar verificación</button>{% endif %}
-      <select name="action" onchange="if(this.value){this.form.submit()}"><option value="">Cambiar rol…</option><option value="professor">Profesor</option><option value="student">Estudiante</option><option value="admin">Administrador</option></select>
-    </form>{% endif %}</div>
-  </td>
-</tr>
-{% endwith %}{% empty %}<tr><td colspan="5">No se encontraron usuarios en esta academia.</td></tr>{% endfor %}
+<form class="sa-filters" method="get"><input name="q" value="{{ q }}" placeholder="Buscar por nombre o correo"><select name="rol"><option value="">Todos los roles del equipo</option>{% for value,label in roles %}<option value="{{ value }}" {% if role_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><select name="estado"><option value="">Todos los estados</option>{% for value,label in states %}<option value="{{ value }}" {% if state_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="btn btn-secondary btn-small" type="submit">Filtrar</button></form>
+<div class="sa-table-wrap"><table class="sa-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Correo</th><th>Cuenta</th><th>Acciones</th></tr></thead><tbody>
+{% for row in users_list %}{% with item=row.user membership=row.membership %}<tr>
+<td><strong><a href="{% url 'superadmin:user_detail' item.id %}">{{ item.display_name }}</a></strong><small>{{ item.email }} · {{ item.phone|default:'Sin teléfono' }}</small></td>
+<td>{{ membership.get_role_display }}</td>
+<td><div class="verification-cell"><span class="verification-dot {% if item.email_verified %}is-verified{% else %}is-pending{% endif %}" title="{% if item.email_verified %}Correo verificado{% else %}Correo pendiente{% endif %}">✓</span><span>{% if item.email_verified %}Verificado{% else %}Pendiente{% endif %}</span></div></td>
+<td><span class="sa-status {% if membership.status == 'ACTIVE' %}ok{% elif membership.status == 'PENDING' %}warn{% else %}danger{% endif %}">{{ membership.get_status_display }}</span></td>
+<td><div class="sa-actions"><a class="sa-action" href="{% url 'superadmin:user_detail' item.id %}">Ver perfil</a>{% if membership.role == 'OWNER' %}<span class="sa-status ok">Dueño</span>{% else %}<form method="post" action="{% url 'superadmin:user_action' item.id %}" class="sa-actions">{% csrf_token %}{% if membership.status == 'ACTIVE' %}<button name="action" value="disable" class="sa-action danger" type="submit">Suspender</button>{% else %}<button name="action" value="enable" class="sa-action primary" type="submit">Habilitar</button>{% endif %}{% if not item.email_verified %}<button name="action" value="resend_verification" class="sa-action" type="submit">Reenviar correo</button>{% endif %}<select name="action" onchange="if(this.value){this.form.submit()}"><option value="">Cambiar rol…</option><option value="professor">Profesor</option><option value="admin">Administrador</option></select></form>{% endif %}</div></td>
+</tr>{% endwith %}{% empty %}<tr><td colspan="5">No se encontraron usuarios del equipo.</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

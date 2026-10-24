@@ -1,4 +1,6 @@
+from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.text import slugify
 
 from .models import (
     Academy, AcademyBankAccount, AcademyCategory, AcademyCourse,
@@ -66,6 +68,40 @@ def bind_user(user, academy, role=AcademyMembership.Role.STUDENT, status=Academy
 def bind_course(course, academy):
     return AcademyCourse.objects.update_or_create(course_id=course.pk, defaults={'academy': academy})[0]
 
+
+
+@transaction.atomic
+def create_academy_category(academy, name, description='', parent=None, is_active=True, order=0):
+    """Crea una categoría compartida por la academia sin duplicar nombres.
+
+    Bloquea la fila de la academia durante la comprobación/creación para evitar
+    que dueño y profesor creen el mismo nombre al mismo tiempo.
+    """
+    from catalog.models import Category
+
+    locked_academy = Academy.objects.select_for_update().get(pk=academy.pk)
+    normalized_name = ' '.join((name or '').split()).strip()
+    existing = scope_categories(Category.objects.all(), locked_academy).filter(name__iexact=normalized_name).first()
+    if existing:
+        return existing, False
+    if parent and not scope_categories(Category.objects.filter(pk=parent.pk), locked_academy).exists():
+        parent = None
+    base = slugify(normalized_name) or 'categoria'
+    candidate = f'{locked_academy.slug}-{base}'
+    index = 2
+    while Category.objects.filter(slug=candidate).exists():
+        candidate = f'{locked_academy.slug}-{base}-{index}'
+        index += 1
+    category = Category.objects.create(
+        name=normalized_name,
+        slug=candidate,
+        description=description or '',
+        parent=parent,
+        is_active=is_active,
+        order=order or 0,
+    )
+    AcademyCategory.objects.create(academy=locked_academy, category_id=category.pk)
+    return category, True
 
 def bind_category(category, academy):
     return AcademyCategory.objects.update_or_create(category_id=category.pk, defaults={'academy': academy})[0]
@@ -153,10 +189,16 @@ def academy_license_usage(academy):
     license_obj = academy.current_license
     if not license_obj:
         return {}
+    # Los superusuarios globales nunca consumen cupos de una academia.
+    # Esto también corrige membresías OWNER antiguas creadas por error con
+    # una cuenta maestra.
+    from accounts.models import User
+    superuser_ids = User.objects.filter(is_superuser=True).values_list('pk', flat=True)
+
     def row(role, limit):
         used = AcademyMembership.objects.filter(
             academy=academy, role=role, status=AcademyMembership.Status.ACTIVE,
-        ).count()
+        ).exclude(user_id__in=superuser_ids).count()
         pct = 0 if not limit else min(100, round((used / limit) * 100))
         return {'used': used, 'limit': limit, 'percent': pct, 'unlimited': not bool(limit)}
     return {

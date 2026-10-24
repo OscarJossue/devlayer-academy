@@ -1,21 +1,40 @@
 {% extends 'base.html' %}
 {% block title %}{{ quiz.title }} · Evaluación{% endblock %}
 {% block content %}
+{% if professor_student_preview %}{% include 'professor/_student_preview_banner.html' %}{% endif %}
 <section class="player-layout quiz-player-layout">
   {% include 'learning/_course_sidebar.html' %}
   <div class="lesson-main quiz-main">
     <div class="lesson-header">
       <div><span class="eyebrow">EVALUACIÓN AUTOMÁTICA</span><h1>{{ quiz.title }}</h1></div>
-      <div class="lesson-header-meta">Intento #{{ attempt.number }} · mínimo {{ quiz.required_score }}%</div>
+      <div class="lesson-header-meta">{% if professor_student_preview %}Vista previa · mínimo {{ quiz.required_score }}%{% else %}Intento #{{ attempt.number }} · mínimo {{ quiz.required_score }}%{% endif %}</div>
     </div>
-    <div class="message info compact-message"><strong>La teoría sigue disponible.</strong> Puedes volver a cualquier clase desbloqueada desde el menú lateral y regresar al cuestionario cuando quieras.</div>
+
+    {% if timing.mode != 'NONE' %}
+      <div class="quiz-timer-card {% if timing.mode == 'LIMIT' %}is-limit{% else %}is-stopwatch{% endif %}" {% if not professor_student_preview %}data-quiz-timer data-mode="{{ timing.mode }}" data-limit="{{ timing.limit_seconds }}" data-elapsed="{{ timing.elapsed_seconds }}" data-remaining="{{ timing.remaining_seconds }}"{% endif %}>
+        <div class="quiz-timer-icon">{% if timing.mode == 'LIMIT' %}⏳{% else %}⏱{% endif %}</div>
+        <div class="quiz-timer-copy">
+          <small>{% if professor_student_preview %}CONFIGURACIÓN DE TIEMPO{% elif timing.mode == 'LIMIT' %}TIEMPO RESTANTE{% else %}CRONÓMETRO DEL INTENTO{% endif %}</small>
+          <strong data-timer-value>{% if professor_student_preview %}{{ quiz.timing_label }}{% elif timing.mode == 'LIMIT' %}{{ timing.remaining_label }}{% else %}{{ timing.elapsed_label }}{% endif %}</strong>
+          <span data-timer-note>
+            {% if professor_student_preview %}En la vista previa el reloj no corre y no puede cerrar ni registrar un intento.{% elif timing.mode == 'LIMIT' %}Al llegar a cero, el intento se enviará automáticamente.{% else %}Objetivo recomendado: {{ timing.limit_minutes }} minutos. Si te pasas, podrás continuar y veremos el tiempo adicional.{% endif %}
+          </span>
+        </div>
+        <div class="quiz-timer-progress"><span data-timer-progress></span></div>
+      </div>
+    {% endif %}
+
+    <div class="message info compact-message">{% if professor_student_preview %}<strong>Modo de prueba.</strong> Puedes marcar respuestas para revisar la experiencia visual, pero no se guardará nada ni se consumirá ningún intento.{% else %}<strong>La teoría sigue disponible.</strong> Puedes volver a cualquier clase desbloqueada desde el menú lateral y regresar al cuestionario cuando quieras.{% endif %}</div>
     <div class="panel quiz-panel">
       <div class="quiz-intro">
         <p>Selecciona una o varias respuestas según indique cada pregunta. La nota se calcula automáticamente al enviar.</p>
-        <p class="muted">Intentos: {% if quiz.max_attempts == 0 %}<strong>Ilimitados</strong>{% else %}<strong>{{ quiz.max_attempts }}</strong>{% endif %} · Respuestas correctas al finalizar: <strong>{% if quiz.show_correct_answers %}Sí{% else %}No{% endif %}</strong></p>
+        <p class="muted">Intentos: {% if quiz.max_attempts == 0 %}<strong>Ilimitados</strong>{% else %}<strong>{{ quiz.max_attempts }}</strong>{% endif %} · Respuestas correctas al finalizar: <strong>{% if quiz.show_correct_answers %}Sí{% else %}No{% endif %}</strong> · Tiempo: <strong>{{ quiz.timing_label }}</strong></p>
       </div>
-      <form method="post" enctype="multipart/form-data" class="quiz-form">{% csrf_token %}
-        {% if require_identity %}
+      {% if professor_student_preview %}<form class="quiz-form quiz-preview-form" onsubmit="return false;">{% else %}<form method="post" enctype="multipart/form-data" class="quiz-form">{% csrf_token %}{% endif %}
+        <input type="hidden" name="_timer_expired" value="0" data-timer-expired>
+        {% if professor_student_preview and preview_identity_required %}
+          <div class="message warning"><strong>Verificación de identidad del examen final</strong><p>El estudiante real verá aquí la solicitud de fotografía y consentimiento. En modo profesor no se captura ninguna imagen.</p></div>
+        {% elif require_identity %}
           <div class="message warning"><strong>Verificación de identidad</strong><p>Se guardará una fotografía como evidencia de este intento.</p><label>Fotografía <input required type="file" name="identity_photo" accept="image/*" capture="user"></label><label class="choice"><input required type="checkbox" name="identity_consent"><span>Autorizo el uso de esta imagen como evidencia de identidad.</span></label></div>
         {% endif %}
         {% for question, choices in question_data %}
@@ -27,28 +46,87 @@
             {% endfor %}
           </fieldset>
         {% empty %}<div class="message warning">Esta evaluación todavía no tiene preguntas automáticas publicadas.</div>{% endfor %}
-        {% if question_data %}<button class="btn" type="submit">Finalizar y ver mi nota</button>{% endif %}
+        {% if question_data %}{% if professor_student_preview %}<div class="quiz-preview-submit-note"><strong>Vista previa</strong><span>El botón de envío está deshabilitado porque esta pantalla no crea intentos ni calificaciones.</span></div>{% else %}<button class="btn" type="submit">Finalizar y ver mi nota</button>{% endif %}{% endif %}
       </form>
     </div>
+    {% if professor_student_preview %}
+      <nav class="learning-flow-nav preview-quiz-flow" aria-label="Navegación de vista previa">
+        <div class="learning-flow-side">{% if preview_previous_url %}<a class="flow-button flow-button-secondary" href="{{ preview_previous_url }}"><span>{{ preview_previous_label|default:'Anterior' }}</span></a>{% endif %}</div>
+        <div class="learning-flow-center"><span class="learning-inline-status preview-inline-status">Evaluación de prueba · sin intentos</span></div>
+        <div class="learning-flow-side learning-flow-side-end"><a class="flow-button flow-button-primary" href="{{ preview_next_url }}"><span>{{ preview_next_label }}</span></a></div>
+      </nav>
+    {% endif %}
   </div>
 </section>
-<script>
+{% if not professor_student_preview %}<script>
 (function(){
   const form=document.querySelector('.quiz-form');
-  if(!form || !window.localStorage) return;
+  if(!form) return;
   const key='academy-quiz-{{ attempt.id }}';
-  try {
-    const saved=JSON.parse(localStorage.getItem(key)||'{}');
-    Object.entries(saved).forEach(([name,values])=>{
-      (values||[]).forEach(value=>{const input=form.querySelector(`[name="${name}"][value="${value}"]`);if(input)input.checked=true;});
+  if(window.localStorage){
+    try {
+      const saved=JSON.parse(localStorage.getItem(key)||'{}');
+      Object.entries(saved).forEach(([name,values])=>{
+        (values||[]).forEach(value=>{const input=form.querySelector(`[name="${name}"][value="${value}"]`);if(input)input.checked=true;});
+      });
+    } catch(e) {}
+    form.addEventListener('change',()=>{
+      const data={};
+      form.querySelectorAll('input[name^="q_"]:checked').forEach(input=>{(data[input.name]||(data[input.name]=[])).push(input.value);});
+      try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}
     });
-  } catch(e) {}
-  form.addEventListener('change',()=>{
-    const data={};
-    form.querySelectorAll('input[name^="q_"]:checked').forEach(input=>{(data[input.name]||(data[input.name]=[])).push(input.value);});
-    try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}
-  });
-  form.addEventListener('submit',()=>{try{localStorage.removeItem(key);}catch(e){}});
+    form.addEventListener('submit',()=>{try{localStorage.removeItem(key);}catch(e){}});
+  }
+
+  const timer=document.querySelector('[data-quiz-timer]');
+  if(!timer) return;
+  const mode=timer.dataset.mode;
+  const limit=Math.max(parseInt(timer.dataset.limit||'0',10),0);
+  let elapsed=Math.max(parseInt(timer.dataset.elapsed||'0',10),0);
+  let remaining=Math.max(parseInt(timer.dataset.remaining||'0',10),0);
+  const value=timer.querySelector('[data-timer-value]');
+  const note=timer.querySelector('[data-timer-note]');
+  const bar=timer.querySelector('[data-timer-progress]');
+  const expiredInput=form.querySelector('[data-timer-expired]');
+  let submitting=false;
+
+  function format(seconds){
+    seconds=Math.max(Math.floor(seconds),0);
+    const h=Math.floor(seconds/3600), m=Math.floor((seconds%3600)/60), s=seconds%60;
+    if(h) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  function render(){
+    if(mode==='LIMIT'){
+      if(value) value.textContent=format(remaining);
+      if(bar) bar.style.width=(limit?Math.max(0,Math.min(100,(remaining/limit)*100)):0)+'%';
+      timer.classList.toggle('is-warning',remaining>0 && remaining<=60);
+      if(remaining<=0 && !submitting){
+        submitting=true;
+        if(expiredInput) expiredInput.value='1';
+        if(note) note.textContent='Tiempo finalizado. Enviando tus respuestas…';
+        form.noValidate=true;
+        if(typeof form.requestSubmit==='function') form.requestSubmit(); else form.submit();
+      }
+    } else if(mode==='STOPWATCH'){
+      if(value) value.textContent=format(elapsed);
+      const overtime=Math.max(elapsed-limit,0);
+      if(limit && bar) bar.style.width=Math.min(100,(elapsed/limit)*100)+'%';
+      if(overtime>0){
+        timer.classList.add('is-overtime');
+        if(note) note.textContent=`Superaste el tiempo recomendado por ${format(overtime)}. Puedes continuar.`;
+      } else if(note){
+        note.textContent=`Tiempo recomendado: ${format(limit)}. Puedes continuar aunque lo superes.`;
+      }
+    }
+  }
+  render();
+  window.setInterval(()=>{
+    if(submitting) return;
+    elapsed+=1;
+    if(mode==='LIMIT') remaining=Math.max(remaining-1,0);
+    render();
+  },1000);
 })();
-</script>
+</script>{% endif %}
 {% endblock %}
